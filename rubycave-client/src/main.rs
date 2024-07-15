@@ -5,6 +5,7 @@ use winit::App;
 
 mod game;
 mod render;
+mod resource;
 mod winit;
 
 fn main() -> color_eyre::eyre::Result<()> {

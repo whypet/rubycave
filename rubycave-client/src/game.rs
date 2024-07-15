@@ -1,19 +1,19 @@
-use std::sync::Arc;
+use wgpu::SurfaceTarget;
 
-use winit::window::Window;
+use crate::render::{GameRenderer, Renderer};
 
-use crate::render::Renderer;
-
-pub struct Game {
-    renderer: Renderer,
+pub struct Game<'window> {
+    renderer: GameRenderer<'window>,
 }
 
-impl Game {
-    pub async fn new(window: Arc<Window>) -> Self {
+impl<'window> Game<'window> {
+    pub async fn new(target: impl Into<SurfaceTarget<'window>>) -> Self {
         Self {
-            renderer: Renderer::new(window).await,
+            renderer: GameRenderer::new(target).await,
         }
     }
 
-    pub fn frame(&mut self) {}
+    pub fn frame(&mut self) {
+        self.renderer.render();
+    }
 }

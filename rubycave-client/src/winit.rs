@@ -14,7 +14,16 @@ use crate::game::Game;
 #[derive(Default)]
 pub struct App {
     window: Option<Arc<Window>>,
-    game: Option<Game>,
+    game: Option<Game<'static>>,
+}
+
+impl App {
+    fn render(&mut self) {
+        let game = self.game.as_mut().expect("game not instantiated");
+        game.frame();
+    }
+
+    fn input(&mut self) {}
 }
 
 impl ApplicationHandler for App {
@@ -31,15 +40,13 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-        let game = self.game.as_mut().unwrap();
-
         match event {
             WindowEvent::CloseRequested => {
                 info!("exiting");
                 event_loop.exit();
             }
             WindowEvent::RedrawRequested => {
-                game.frame();
+                self.render();
             }
             _ => (),
         }

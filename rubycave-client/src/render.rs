@@ -1,21 +1,37 @@
-use std::sync::Arc;
+use std::rc::Rc;
 
-use winit::window::Window;
+use triangle::TriangleRenderer;
+use wgpu::SurfaceTarget;
 
-pub struct Renderer {
+pub mod triangle;
+
+pub trait Renderer {
+    fn render(&mut self);
+}
+
+trait InternalRenderer<'window, StateRef: AsRef<State<'window>>>: Renderer {
+    fn new(state: StateRef) -> Self;
+}
+
+struct State<'window> {
     instance: wgpu::Instance,
-    surface: wgpu::Surface<'static>,
+    surface: wgpu::Surface<'window>,
     adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
 }
 
-impl Renderer {
-    pub async fn new(window: Arc<Window>) -> Self {
+pub struct GameRenderer<'window> {
+    state: Rc<State<'window>>,
+    triangle_renderer: TriangleRenderer<'window, Rc<State<'window>>>,
+}
+
+impl<'a> GameRenderer<'a> {
+    pub async fn new(target: impl Into<SurfaceTarget<'a>>) -> Self {
         let instance = wgpu::Instance::default();
 
         let surface = instance
-            .create_surface(window.clone())
+            .create_surface(target)
             .expect("failed to create surface");
 
         let adapter = instance
@@ -39,12 +55,21 @@ impl Renderer {
             .await
             .expect("failed to create device");
 
-        Self {
+        let state = Rc::new(State {
             instance,
             surface,
             adapter,
             device,
             queue,
+        });
+
+        Self {
+            state: state.clone(),
+            triangle_renderer: TriangleRenderer::new(state),
         }
     }
+}
+
+impl<'window> Renderer for GameRenderer<'window> {
+    fn render(&mut self) {}
 }
