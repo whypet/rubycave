@@ -1,15 +1,15 @@
 use std::{borrow::Borrow, marker::PhantomData};
 
-use super::{InternalRenderer, Renderer, State};
+use super::{Renderer, State};
 
-#[allow(private_bounds)]
-pub struct TriangleRenderer<'a, StateRef: Borrow<State<'a>>> {
+pub struct TriangleRenderer<'state, StateRef: Borrow<State<'state>>> {
+    #[allow(dead_code)]
     state: StateRef,
-    _phantom: PhantomData<&'a ()>,
+    _phantom: PhantomData<&'state ()>,
 }
 
-impl<'a, StateRef: Borrow<State<'a>>> InternalRenderer<'a, StateRef>
-    for TriangleRenderer<'a, StateRef>
+impl<'state, StateRef: Borrow<State<'state>>> Renderer<'state, StateRef>
+    for TriangleRenderer<'state, StateRef>
 {
     fn new(state: StateRef) -> Self {
         Self {
@@ -17,10 +17,8 @@ impl<'a, StateRef: Borrow<State<'a>>> InternalRenderer<'a, StateRef>
             _phantom: PhantomData,
         }
     }
-}
 
-impl<'a, StateRef: Borrow<State<'a>>> Renderer for TriangleRenderer<'a, StateRef> {
-    fn render(&mut self) {
+    fn render(&self) {
         todo!()
     }
 }

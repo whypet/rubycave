@@ -18,12 +18,10 @@ pub struct App {
 }
 
 impl App {
-    fn render(&mut self) {
-        let game = self.game.as_mut().expect("game not instantiated");
+    fn render(&self) {
+        let game = self.game.as_ref().expect("game not instantiated");
         game.frame();
     }
-
-    fn input(&mut self) {}
 }
 
 impl ApplicationHandler for App {

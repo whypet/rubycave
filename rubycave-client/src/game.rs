@@ -1,19 +1,30 @@
+use ouroboros::self_referencing;
 use wgpu::SurfaceTarget;
 
-use crate::render::{GameRenderer, Renderer};
+use crate::render::{game::GameRenderer, Renderer, State};
 
-pub struct Game<'window> {
-    renderer: GameRenderer<'window>,
+#[self_referencing]
+struct GameRendererBox<'state> {
+    state: State<'state>,
+    #[borrows(state)]
+    #[not_covariant]
+    inner_renderer: GameRenderer<'this, &'this State<'this>>,
 }
 
-impl<'window> Game<'window> {
-    pub async fn new(target: impl Into<SurfaceTarget<'window>>) -> Self {
+pub struct Game<'a> {
+    renderer_box: GameRendererBox<'a>,
+}
+
+impl<'a> Game<'a> {
+    pub async fn new(target: impl Into<SurfaceTarget<'a>>) -> Self {
         Self {
-            renderer: GameRenderer::new(target).await,
+            renderer_box: GameRendererBox::new(State::new(target).await, |s| GameRenderer::new(s)),
         }
     }
 
-    pub fn frame(&mut self) {
-        self.renderer.render();
+    pub fn frame(&'a self) {
+        self.renderer_box.with_inner_renderer(|renderer| {
+            renderer.render();
+        });
     }
 }
