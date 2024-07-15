@@ -1,5 +1,6 @@
-use std::rc::Rc;
+use std::borrow::Borrow;
 
+use ouroboros::self_referencing;
 use triangle::TriangleRenderer;
 use wgpu::SurfaceTarget;
 
@@ -9,7 +10,7 @@ pub trait Renderer {
     fn render(&mut self);
 }
 
-trait InternalRenderer<'window, StateRef: AsRef<State<'window>>>: Renderer {
+trait InternalRenderer<'window, StateRef: Borrow<State<'window>>>: Renderer {
     fn new(state: StateRef) -> Self;
 }
 
@@ -21,9 +22,16 @@ struct State<'window> {
     queue: wgpu::Queue,
 }
 
+#[self_referencing]
+struct InnerGameRenderer<'window> {
+    state: State<'window>,
+    #[borrows(state)]
+    #[not_covariant]
+    triangle_renderer: TriangleRenderer<'this, &'this State<'this>>,
+}
+
 pub struct GameRenderer<'window> {
-    state: Rc<State<'window>>,
-    triangle_renderer: TriangleRenderer<'window, Rc<State<'window>>>,
+    inner: InnerGameRenderer<'window>,
 }
 
 impl<'a> GameRenderer<'a> {
@@ -55,17 +63,16 @@ impl<'a> GameRenderer<'a> {
             .await
             .expect("failed to create device");
 
-        let state = Rc::new(State {
+        let state = State {
             instance,
             surface,
             adapter,
             device,
             queue,
-        });
+        };
 
         Self {
-            state: state.clone(),
-            triangle_renderer: TriangleRenderer::new(state),
+            inner: InnerGameRenderer::new(state, |s| TriangleRenderer::new(s)),
         }
     }
 }
