@@ -8,5 +8,5 @@ pub enum BlockId {
 }
 
 pub struct Chunk {
-    blocks: [BlockId; CHUNK_WIDTH * CHUNK_LENGTH * CHUNK_HEIGHT],
+    pub blocks: [BlockId; CHUNK_WIDTH * CHUNK_LENGTH * CHUNK_HEIGHT],
 }

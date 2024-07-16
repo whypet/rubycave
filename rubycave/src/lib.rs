@@ -1,1 +1,1 @@
-mod world;
+pub mod world;
