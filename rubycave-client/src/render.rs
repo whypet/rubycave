@@ -1,17 +1,17 @@
 use std::borrow::Borrow;
 
-use wgpu::SurfaceTarget;
+use crate::resource::ResourceManager;
 
 pub mod game;
 pub mod triangle;
 
-pub trait Renderer<'window, StateRef: Borrow<State<'window>>> {
-    fn new(state: StateRef) -> Self;
+pub trait Renderer<'state, StateRef: Borrow<State<'state>>> {
+    fn new(state_ref: StateRef, resource_man: &'state ResourceManager) -> Self;
     fn render(&self);
 }
 
-#[allow(dead_code)]
 pub struct State<'window> {
+    #[allow(dead_code)]
     instance: wgpu::Instance,
     surface: wgpu::Surface<'window>,
     adapter: wgpu::Adapter,
@@ -20,7 +20,7 @@ pub struct State<'window> {
 }
 
 impl<'window> State<'window> {
-    pub async fn new(target: impl Into<SurfaceTarget<'window>>) -> Self {
+    pub async fn new(target: impl Into<wgpu::SurfaceTarget<'window>>) -> Self {
         let instance = wgpu::Instance::default();
 
         let surface = instance
@@ -55,5 +55,13 @@ impl<'window> State<'window> {
             device,
             queue,
         }
+    }
+
+    pub fn resize(&self, width: u32, height: u32) {
+        let config = self
+            .surface
+            .get_default_config(&self.adapter, width, height)
+            .unwrap();
+        self.surface.configure(&self.device, &config);
     }
 }

@@ -1,7 +1,10 @@
 use std::{
     fs::File,
+    io::{self, Read},
     path::{Path, PathBuf},
 };
+
+pub const DIR_SHADER: &str = "shader";
 
 pub struct ResourceManager {
     path: PathBuf,
@@ -20,22 +23,31 @@ impl ResourceManager {
         }
     }
 
-    pub fn get(&self, subdir: &str) -> Resource {
+    pub fn get(&self, subdir: impl AsRef<str>) -> Resource {
         Resource {
             root: self.path.as_path(),
-            location: subdir.into(),
+            location: subdir.as_ref().into(),
             file: None,
         }
     }
 }
 
 impl<'a> Resource<'a> {
-    pub fn open(&'a mut self) -> std::io::Result<&'a File> {
+    pub fn open(&'a mut self) -> io::Result<&'a File> {
         if self.file.is_none() {
-            let file = File::open(&self.location.join(self.root).as_path())?;
+            let file = File::open(self.root.join(&self.location).as_path())?;
             self.file = Some(file);
         }
 
         Ok(self.file.as_ref().unwrap())
+    }
+
+    pub fn read_to_str(&'a mut self) -> io::Result<String> {
+        let mut file = self.open()?;
+
+        let mut source = String::new();
+        file.read_to_string(&mut source)?;
+
+        Ok(source)
     }
 }

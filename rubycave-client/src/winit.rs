@@ -38,10 +38,15 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        let game = self.game.as_ref().unwrap();
+
         match event {
             WindowEvent::CloseRequested => {
                 info!("exiting");
                 event_loop.exit();
+            }
+            WindowEvent::Resized(size) => {
+                game.get_state().resize(size.width, size.height);
             }
             WindowEvent::RedrawRequested => {
                 self.render();
