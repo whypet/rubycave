@@ -1,7 +1,7 @@
 use ouroboros::self_referencing;
 
 use crate::{
-    render::{game::GameRenderer, Renderer, State},
+    render::{game::GameRenderer, view::Camera, Renderer, State},
     resource::ResourceManager,
 };
 
@@ -9,9 +9,10 @@ use crate::{
 struct InnerGame<'state> {
     state: State<'state>,
     resource_man: ResourceManager,
-    #[borrows(state, resource_man)]
+    camera: Camera,
+    #[borrows(state, resource_man, camera)]
     #[not_covariant]
-    inner_renderer: GameRenderer<'this, &'this State<'this>>,
+    renderer: GameRenderer<'this, &'this State<'this>>,
 }
 
 pub struct Game<'a> {
@@ -29,13 +30,14 @@ impl<'a> Game<'a> {
                         .parent()
                         .expect("failed to get current executable parent directory"),
                 ),
-                |s, r| GameRenderer::new(s, r),
+                Camera::default(),
+                |s, r, c| GameRenderer::new(s, r, c),
             ),
         }
     }
 
     pub fn frame(&self) {
-        self.inner.with_inner_renderer(|renderer| {
+        self.inner.with_renderer(|renderer| {
             renderer.render();
         });
     }

@@ -1,12 +1,11 @@
 use std::borrow::Borrow;
 
-use crate::resource::ResourceManager;
-
 pub mod game;
 pub mod triangle;
+pub mod view;
 
 pub trait Renderer<'state, StateRef: Borrow<State<'state>>> {
-    fn new(state_ref: StateRef, resource_man: &'state ResourceManager) -> Self;
+    // fn new(state_ref: StateRef, resource_man: &'state ResourceManager) -> Self;
     fn render(&self);
 }
 

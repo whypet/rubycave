@@ -1,11 +1,13 @@
+#[derive(Default)]
 pub struct Position {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
+#[derive(Default)]
 pub struct Orientation {
-    pub yaw: f64,
-    pub pitch: f64,
-    pub roll: f64,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub roll: f32,
 }

@@ -4,6 +4,7 @@ use tracing::info;
 use winit::App;
 
 mod game;
+mod math;
 mod render;
 mod resource;
 mod winit;
