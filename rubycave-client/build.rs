@@ -27,6 +27,8 @@ fn main() {
             continue;
         }
 
+        println!("cargo::rerun-if-changed={}", entry_path.to_str().unwrap());
+
         let stripped = entry_path.strip_prefix(&res_dir).expect(&format!(
             "failed to strip prefix '{}' from '{}'",
             entry_path.display(),
