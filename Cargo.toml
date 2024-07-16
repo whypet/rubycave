@@ -5,4 +5,4 @@ codegen-backend = "cranelift"
 
 [workspace]
 resolver = "2"
-members = ["rubycave-client"]
+members = ["rubycave", "rubycave-client"]
