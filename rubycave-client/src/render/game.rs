@@ -1,22 +1,27 @@
-use std::borrow::Borrow;
+use std::rc::Rc;
 
-use crate::resource::ResourceManager;
+use crate::{config::Config, resource::ResourceManager};
 
 use super::{triangle::TriangleRenderer, view::Camera, Renderer, State};
 
-pub struct GameRenderer<'a, StateRef: Borrow<State<'a>>> {
-    triangle_renderer: TriangleRenderer<'a, StateRef>,
+pub struct GameRenderer<'a> {
+    triangle_renderer: TriangleRenderer<'a>,
 }
 
-impl<'a, StateRef: Borrow<State<'a>>> GameRenderer<'a, StateRef> {
-    pub fn new(state_ref: StateRef, resource_man: &'a ResourceManager, camera: &'a Camera) -> Self {
+impl<'a> GameRenderer<'a> {
+    pub fn new(
+        state: Rc<State<'a>>,
+        config: Rc<Config>,
+        resource_man: Rc<ResourceManager>,
+        camera: Rc<Camera>,
+    ) -> Self {
         Self {
-            triangle_renderer: TriangleRenderer::new(state_ref, resource_man, camera),
+            triangle_renderer: TriangleRenderer::new(state, config, resource_man, camera),
         }
     }
 }
 
-impl<'a, StateRef: Borrow<State<'a>>> Renderer<'a, StateRef> for GameRenderer<'a, StateRef> {
+impl Renderer for GameRenderer<'_> {
     fn render(&self) {
         self.triangle_renderer.render();
     }

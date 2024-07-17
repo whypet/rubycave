@@ -1,48 +1,38 @@
-use ouroboros::self_referencing;
+use std::{env, io, rc::Rc};
 
 use crate::{
+    config::Config,
     render::{game::GameRenderer, view::Camera, Renderer, State},
     resource::ResourceManager,
 };
 
-#[self_referencing]
-struct InnerGame<'state> {
-    state: State<'state>,
-    resource_man: ResourceManager,
-    camera: Camera,
-    #[borrows(state, resource_man, camera)]
-    #[not_covariant]
-    renderer: GameRenderer<'this, &'this State<'this>>,
-}
-
 pub struct Game<'a> {
-    inner: InnerGame<'a>,
+    state: Rc<State<'a>>,
+    renderer: GameRenderer<'a>,
 }
 
 impl<'a> Game<'a> {
-    pub async fn new(target: impl Into<wgpu::SurfaceTarget<'a>>) -> Self {
-        Self {
-            inner: InnerGame::new(
-                State::new(target).await,
-                ResourceManager::new(
-                    std::env::current_exe()
-                        .expect("failed to get current executable path")
-                        .parent()
-                        .expect("failed to get current executable parent directory"),
-                ),
-                Camera::default(),
-                |s, r, c| GameRenderer::new(s, r, c),
-            ),
-        }
+    pub async fn new(
+        target: impl Into<wgpu::SurfaceTarget<'a>>,
+        config: Rc<Config>,
+        width: u32,
+        height: u32,
+    ) -> io::Result<Self> {
+        let state = Rc::new(State::new(target, width, height).await);
+        let resource_man = Rc::new(ResourceManager::new(env::current_exe()?.parent().unwrap()));
+        let camera = Rc::new(Camera::default());
+
+        Ok(Self {
+            state: state.clone(),
+            renderer: GameRenderer::new(state, config, resource_man, camera),
+        })
     }
 
     pub fn frame(&self) {
-        self.inner.with_renderer(|renderer| {
-            renderer.render();
-        });
+        self.renderer.render()
     }
 
     pub fn get_state(&self) -> &State {
-        self.inner.with_state(|s| s)
+        &self.state
     }
 }

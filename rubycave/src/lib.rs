@@ -1,2 +1,3 @@
-pub mod space;
 pub mod world;
+
+pub use glam;
