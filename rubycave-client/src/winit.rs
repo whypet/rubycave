@@ -1,34 +1,37 @@
 use std::{rc::Rc, sync::Arc};
 
 use pollster::FutureExt;
-use tracing::info;
+use tracing::{debug, error, info};
 use winit::{
     application::ApplicationHandler,
-    event::WindowEvent,
+    dpi::PhysicalPosition,
+    event::{DeviceEvent, WindowEvent},
     event_loop::ActiveEventLoop,
     keyboard::{KeyCode, PhysicalKey},
-    window::{Window, WindowId},
+    window::{CursorGrabMode, Window, WindowId},
 };
 
 use crate::{config::Config, game::Game};
 
-pub struct App {
+pub struct App<'a> {
     config: Rc<Config>,
     window: Option<Arc<Window>>,
-    game: Option<Game<'static>>,
+    game: Option<Game<'a>>,
+    focused: bool,
 }
 
-impl App {
+impl<'a> App<'a> {
     pub fn new(config: Config) -> Self {
         Self {
             config: Rc::new(config),
             window: None,
             game: None,
+            focused: false,
         }
     }
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler for App<'_> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window = Arc::new(
             event_loop
@@ -47,7 +50,7 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-        let Some(game) = self.game.as_ref() else {
+        let Some(game) = self.game.as_mut() else {
             return;
         };
         let Some(window) = self.window.as_ref() else {
@@ -67,57 +70,73 @@ impl ApplicationHandler for App {
                 event,
                 is_synthetic: _,
             } => {
-                let mut camera = game.get_camera();
-
                 if let PhysicalKey::Code(code) = event.physical_key {
                     match code {
-                        KeyCode::KeyW => {
-                            camera.pos.x -= 0.1 * camera.ang.y.sin();
-                            camera.pos.z -= 0.1 * camera.ang.y.cos();
-                            camera.set_updated(true);
+                        KeyCode::Escape => {
+                            if event.state.is_pressed() {
+                                self.focused ^= true;
+
+                                let res = window.set_cursor_grab(if self.focused {
+                                    CursorGrabMode::Locked
+                                } else {
+                                    CursorGrabMode::None
+                                });
+                                window.set_cursor_visible(!self.focused);
+
+                                if let Err(error) = res {
+                                    error!("failed to set cursor grab: {}", error);
+                                } else if self.focused {
+                                    debug!("grabbed cursor");
+                                } else {
+                                    debug!("let go of cursor");
+
+                                    let size = window.inner_size();
+                                    let res = window.inner_position();
+
+                                    if let Ok(pos) = res {
+                                        let _ = window.set_cursor_position(PhysicalPosition::new(
+                                            pos.x + (size.width / 2) as i32,
+                                            pos.y + (size.height / 2) as i32,
+                                        ));
+                                    }
+                                }
+                            }
                         }
-                        KeyCode::KeyA => {
-                            let y = camera.ang.y + std::f32::consts::FRAC_PI_2;
-                            camera.pos.x -= 0.1 * y.sin();
-                            camera.pos.z -= 0.1 * y.cos();
-                            camera.set_updated(true);
-                        }
-                        KeyCode::KeyS => {
-                            camera.pos.x += 0.1 * camera.ang.y.sin();
-                            camera.pos.z += 0.1 * camera.ang.y.cos();
-                            camera.set_updated(true);
-                        }
-                        KeyCode::KeyD => {
-                            let y = camera.ang.y + std::f32::consts::FRAC_PI_2;
-                            camera.pos.x += 0.1 * y.sin();
-                            camera.pos.z += 0.1 * y.cos();
-                            camera.set_updated(true);
-                        }
-                        KeyCode::ArrowUp => {
-                            camera.ang.x += 0.05;
-                            camera.set_updated(true);
-                        }
-                        KeyCode::ArrowDown => {
-                            camera.ang.x -= 0.05;
-                            camera.set_updated(true);
-                        }
-                        KeyCode::ArrowLeft => {
-                            camera.ang.y += 0.05;
-                            camera.set_updated(true);
-                        }
-                        KeyCode::ArrowRight => {
-                            camera.ang.y -= 0.05;
-                            camera.set_updated(true);
-                        }
-                        _ => {}
+                        _ => game.key(code, event.state.is_pressed()),
                     }
                 }
             }
             WindowEvent::RedrawRequested => {
+                game.update();
                 game.render();
                 window.request_redraw();
             }
             _ => (),
+        }
+    }
+
+    fn device_event(
+        &mut self,
+        _: &ActiveEventLoop,
+        _: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        if !self.focused {
+            return;
+        }
+        let Some(window) = self.window.as_ref() else {
+            return;
+        };
+
+        match event {
+            DeviceEvent::MouseMotion { delta } => {
+                let Some(game) = self.game.as_mut() else {
+                    return;
+                };
+
+                game.mouse_delta(delta, window.inner_size());
+            }
+            _ => {}
         }
     }
 }

@@ -6,6 +6,7 @@ use config::Config;
 use tracing::info;
 
 mod config;
+mod entity;
 mod game;
 mod render;
 mod resource;
@@ -16,7 +17,10 @@ fn main() -> color_eyre::eyre::Result<()> {
 
     tracing_subscriber::fmt::init();
 
-    let config = Config::new(70.0);
+    let config = Config {
+        fov: 70.0,
+        sensitivity: 0.5,
+    };
 
     info!("starting");
 

@@ -141,9 +141,10 @@ impl Renderer for TriangleRenderer<'_> {
         let queue: &wgpu::Queue = &self.state.queue;
 
         let camera = self.camera.borrow();
-        let config_fov = self.config.get_fov();
+        let config_fov = self.config.fov;
 
-        if camera.is_updated() || self.fov.get() != config_fov {
+        if self.view_proj.borrow().is_none() || camera.is_updated() || self.fov.get() != config_fov
+        {
             let (width, height) = self.state.surface_config.get_size();
 
             self.fov.set(config_fov);

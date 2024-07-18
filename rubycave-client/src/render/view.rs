@@ -30,7 +30,7 @@ impl Camera {
     pub fn view(&self) -> Affine3A {
         Affine3A::look_to_rh(
             self.pos,
-            Quat::from_euler(EulerRot::XYZ, self.ang.x, self.ang.y, self.ang.z)
+            Quat::from_euler(EulerRot::YXZ, self.ang.x, self.ang.y, self.ang.z)
                 .mul_vec3(Vec3::NEG_Z),
             Vec3::Y,
         )
@@ -38,5 +38,5 @@ impl Camera {
 }
 
 pub fn perspective_rh(config: &Config, width: f32, height: f32) -> Mat4 {
-    Mat4::perspective_rh(config.get_fov().to_radians(), width / height, 0.1, 100.0)
+    Mat4::perspective_rh(config.fov.to_radians(), width / height, 0.1, 100.0)
 }
