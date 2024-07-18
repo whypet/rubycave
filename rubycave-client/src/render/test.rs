@@ -20,10 +20,10 @@ pub struct TriangleRenderer<'a> {
     view_proj_buffer: wgpu::Buffer,
     view_proj_bind_group: wgpu::BindGroup,
 
-    view_proj: RefCell<Option<Mat4>>,
+    view_proj: Option<Mat4>,
     camera: Rc<RefCell<Camera>>,
 
-    fov: Cell<f32>,
+    fov: f32,
 }
 
 impl<'a> TriangleRenderer<'a> {
@@ -108,7 +108,7 @@ impl<'a> TriangleRenderer<'a> {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None, // Some(wgpu::Face::Back),
+                cull_mode: None,
                 unclipped_depth: false,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
@@ -126,16 +126,16 @@ impl<'a> TriangleRenderer<'a> {
             view_proj_buffer,
             render_pipeline,
 
-            view_proj: RefCell::new(None),
+            view_proj: None,
             camera,
 
-            fov: Cell::new(0.0),
+            fov: 0.0,
         }
     }
 }
 
 impl Renderer for TriangleRenderer<'_> {
-    fn render(&self) {
+    fn render(&mut self) {
         let surface: &wgpu::Surface = &self.state.surface;
         let device: &wgpu::Device = &self.state.device;
         let queue: &wgpu::Queue = &self.state.queue;
@@ -143,12 +143,11 @@ impl Renderer for TriangleRenderer<'_> {
         let camera = self.camera.borrow();
         let config_fov = self.config.fov;
 
-        if self.view_proj.borrow().is_none() || camera.is_updated() || self.fov.get() != config_fov
-        {
+        if self.view_proj.is_none() || camera.is_updated() || self.fov != config_fov {
             let (width, height) = self.state.surface_config.get_size();
 
-            self.fov.set(config_fov);
-            *self.view_proj.borrow_mut() = Some(
+            self.fov = config_fov;
+            self.view_proj = Some(
                 view::perspective_rh(&self.config, width as f32, height as f32) * camera.view(),
             );
         }
@@ -156,9 +155,7 @@ impl Renderer for TriangleRenderer<'_> {
         queue.write_buffer(
             &self.view_proj_buffer,
             0,
-            bytemuck::cast_slice(AsRef::<[f32; 16]>::as_ref(
-                self.view_proj.borrow().as_ref().unwrap(),
-            )),
+            bytemuck::cast_slice(AsRef::<[f32; 16]>::as_ref(self.view_proj.as_ref().unwrap())),
         );
 
         let frame = surface

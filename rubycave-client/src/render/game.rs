@@ -2,10 +2,11 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{config::Config, resource::ResourceManager};
 
-use super::{triangle::TriangleRenderer, view::Camera, Renderer, State};
+use super::{test::TriangleRenderer, view::Camera, world::WorldRenderer, Renderer, State};
 
 pub struct GameRenderer<'a> {
-    triangle_renderer: TriangleRenderer<'a>,
+    triangle: TriangleRenderer<'a>,
+    world: WorldRenderer<'a>,
 }
 
 impl<'a> GameRenderer<'a> {
@@ -16,13 +17,20 @@ impl<'a> GameRenderer<'a> {
         camera: Rc<RefCell<Camera>>,
     ) -> Self {
         Self {
-            triangle_renderer: TriangleRenderer::new(state, config, resource_man, camera),
+            triangle: TriangleRenderer::new(
+                state.clone(),
+                config.clone(),
+                resource_man,
+                camera.clone(),
+            ),
+            world: WorldRenderer::new(state, config, camera),
         }
     }
 }
 
 impl Renderer for GameRenderer<'_> {
-    fn render(&self) {
-        self.triangle_renderer.render();
+    fn render(&mut self) {
+        self.triangle.render();
+        // self.world.render();
     }
 }

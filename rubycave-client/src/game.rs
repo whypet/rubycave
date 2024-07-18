@@ -20,7 +20,7 @@ pub struct Game<'a> {
     config: Rc<Config>,
     player: Rc<RefCell<Player>>,
     camera: Rc<RefCell<Camera>>,
-    renderer: GameRenderer<'a>,
+    renderer: RefCell<GameRenderer<'a>>,
     last_update: Instant,
     wasdqe: [bool; 6],
     rot: Vec3,
@@ -46,7 +46,7 @@ impl<'a> Game<'a> {
             config: config.clone(),
             player,
             camera: camera.clone(),
-            renderer: GameRenderer::new(state, config, resource_man, camera),
+            renderer: RefCell::new(GameRenderer::new(state, config, resource_man, camera)),
             last_update: Instant::now(),
             wasdqe: Default::default(),
             rot: Vec3::ZERO,
@@ -157,7 +157,7 @@ impl<'a> Game<'a> {
             }
         }
 
-        self.renderer.render();
+        self.renderer.borrow_mut().render();
     }
 
     pub fn get_state(&self) -> &State {

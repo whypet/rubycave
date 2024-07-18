@@ -1,11 +1,12 @@
 use std::cell::RefCell;
 
 pub mod game;
-pub mod triangle;
+pub mod test;
 pub mod view;
+pub mod world;
 
 pub trait Renderer {
-    fn render(&self);
+    fn render(&mut self);
 }
 
 pub trait SizedSurface {
