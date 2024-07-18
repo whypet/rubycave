@@ -6,6 +6,7 @@ use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
     event_loop::ActiveEventLoop,
+    keyboard::{KeyCode, PhysicalKey},
     window::{Window, WindowId},
 };
 
@@ -31,7 +32,7 @@ impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window = Arc::new(
             event_loop
-                .create_window(Window::default_attributes())
+                .create_window(Window::default_attributes().with_transparent(true))
                 .unwrap(),
         );
         let size = window.inner_size();
@@ -61,8 +62,59 @@ impl ApplicationHandler for App {
             WindowEvent::Resized(size) => {
                 game.get_state().resize(size.width, size.height);
             }
+            WindowEvent::KeyboardInput {
+                device_id: _,
+                event,
+                is_synthetic: _,
+            } => {
+                let mut camera = game.get_camera();
+
+                if let PhysicalKey::Code(code) = event.physical_key {
+                    match code {
+                        KeyCode::KeyW => {
+                            camera.pos.x -= 0.1 * camera.ang.y.sin();
+                            camera.pos.z -= 0.1 * camera.ang.y.cos();
+                            camera.set_updated(true);
+                        }
+                        KeyCode::KeyA => {
+                            let y = camera.ang.y + std::f32::consts::FRAC_PI_2;
+                            camera.pos.x -= 0.1 * y.sin();
+                            camera.pos.z -= 0.1 * y.cos();
+                            camera.set_updated(true);
+                        }
+                        KeyCode::KeyS => {
+                            camera.pos.x += 0.1 * camera.ang.y.sin();
+                            camera.pos.z += 0.1 * camera.ang.y.cos();
+                            camera.set_updated(true);
+                        }
+                        KeyCode::KeyD => {
+                            let y = camera.ang.y + std::f32::consts::FRAC_PI_2;
+                            camera.pos.x += 0.1 * y.sin();
+                            camera.pos.z += 0.1 * y.cos();
+                            camera.set_updated(true);
+                        }
+                        KeyCode::ArrowUp => {
+                            camera.ang.x += 0.05;
+                            camera.set_updated(true);
+                        }
+                        KeyCode::ArrowDown => {
+                            camera.ang.x -= 0.05;
+                            camera.set_updated(true);
+                        }
+                        KeyCode::ArrowLeft => {
+                            camera.ang.y += 0.05;
+                            camera.set_updated(true);
+                        }
+                        KeyCode::ArrowRight => {
+                            camera.ang.y -= 0.05;
+                            camera.set_updated(true);
+                        }
+                        _ => {}
+                    }
+                }
+            }
             WindowEvent::RedrawRequested => {
-                game.frame();
+                game.render();
                 window.request_redraw();
             }
             _ => (),

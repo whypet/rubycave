@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{config::Config, resource::ResourceManager};
 
@@ -13,7 +13,7 @@ impl<'a> GameRenderer<'a> {
         state: Rc<State<'a>>,
         config: Rc<Config>,
         resource_man: Rc<ResourceManager>,
-        camera: Rc<Camera>,
+        camera: Rc<RefCell<Camera>>,
     ) -> Self {
         Self {
             triangle_renderer: TriangleRenderer::new(state, config, resource_man, camera),

@@ -5,8 +5,15 @@ pub mod triangle;
 pub mod view;
 
 pub trait Renderer {
-    // fn new(state_ref: StateRef, resource_man: &'state ResourceManager) -> Self;
     fn render(&self);
+}
+
+pub trait SizedSurface {
+    fn get_size(&self) -> (u32, u32);
+    #[allow(dead_code)]
+    fn get_width(&self) -> u32;
+    #[allow(dead_code)]
+    fn get_height(&self) -> u32;
 }
 
 pub struct State<'window> {
@@ -43,7 +50,8 @@ impl<'window> State<'window> {
             .await
             .expect("failed to find an appropriate adapter");
 
-        let surface_config = surface.get_default_config(&adapter, width, height).unwrap();
+        let mut surface_config = surface.get_default_config(&adapter, width, height).unwrap();
+        surface_config.alpha_mode = wgpu::CompositeAlphaMode::PreMultiplied;
 
         let (device, queue) = adapter
             .request_device(
@@ -51,7 +59,6 @@ impl<'window> State<'window> {
                     label: None,
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
-                    memory_hints: wgpu::MemoryHints::Performance,
                 },
                 None,
             )
@@ -61,6 +68,7 @@ impl<'window> State<'window> {
         surface.configure(&device, &surface_config);
 
         let surface_config = RefCell::new(surface_config);
+        let _ = surface_config.get_size();
 
         Self {
             instance,
@@ -79,5 +87,20 @@ impl<'window> State<'window> {
         config.height = height;
 
         self.surface.configure(&self.device, &config);
+    }
+}
+
+impl<'window> SizedSurface for RefCell<wgpu::SurfaceConfiguration> {
+    fn get_size(&self) -> (u32, u32) {
+        let surface_config = self.borrow();
+        (surface_config.width, surface_config.height)
+    }
+
+    fn get_width(&self) -> u32 {
+        self.borrow().width
+    }
+
+    fn get_height(&self) -> u32 {
+        self.borrow().height
     }
 }

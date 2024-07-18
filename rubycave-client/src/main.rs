@@ -16,7 +16,7 @@ fn main() -> color_eyre::eyre::Result<()> {
 
     tracing_subscriber::fmt::init();
 
-    let config = Config { fov: 70.0 };
+    let config = Config::new(70.0);
 
     info!("starting");
 

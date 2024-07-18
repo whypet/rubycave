@@ -1,10 +1,16 @@
-use std::rc::Rc;
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 use rubycave::glam::Mat4;
 
 use crate::{config::Config, resource::ResourceManager};
 
-use super::{view::Camera, Renderer, State};
+use super::{
+    view::{self, Camera},
+    Renderer, SizedSurface, State,
+};
 
 pub struct TriangleRenderer<'a> {
     state: Rc<State<'a>>,
@@ -14,8 +20,10 @@ pub struct TriangleRenderer<'a> {
     view_proj_buffer: wgpu::Buffer,
     view_proj_bind_group: wgpu::BindGroup,
 
-    proj: Mat4,
-    camera: Rc<Camera>,
+    view_proj: RefCell<Option<Mat4>>,
+    camera: Rc<RefCell<Camera>>,
+
+    fov: Cell<f32>,
 }
 
 impl<'a> TriangleRenderer<'a> {
@@ -23,7 +31,7 @@ impl<'a> TriangleRenderer<'a> {
         state: Rc<State<'a>>,
         config: Rc<Config>,
         resource_man: Rc<ResourceManager>,
-        camera: Rc<Camera>,
+        camera: Rc<RefCell<Camera>>,
     ) -> Self {
         let mut res = resource_man.get(crate::resource::DIR_SHADER.to_owned() + "/triangle.wgsl");
         let source = res.read_to_str().expect("failed to read triangle shader");
@@ -90,13 +98,17 @@ impl<'a> TriangleRenderer<'a> {
                 module: &shader,
                 entry_point: "fs_main",
                 compilation_options: Default::default(),
-                targets: &[Some(swapchain_format.into())],
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: swapchain_format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
+                cull_mode: None, // Some(wgpu::Face::Back),
                 unclipped_depth: false,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
@@ -104,7 +116,6 @@ impl<'a> TriangleRenderer<'a> {
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
-            cache: None,
         });
 
         Self {
@@ -115,8 +126,10 @@ impl<'a> TriangleRenderer<'a> {
             view_proj_buffer,
             render_pipeline,
 
-            proj: Mat4::orthographic_rh(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0),
+            view_proj: RefCell::new(None),
             camera,
+
+            fov: Cell::new(0.0),
         }
     }
 }
@@ -127,10 +140,24 @@ impl Renderer for TriangleRenderer<'_> {
         let device: &wgpu::Device = &self.state.device;
         let queue: &wgpu::Queue = &self.state.queue;
 
+        let camera = self.camera.borrow();
+        let config_fov = self.config.get_fov();
+
+        if camera.is_updated() || self.fov.get() != config_fov {
+            let (width, height) = self.state.surface_config.get_size();
+
+            self.fov.set(config_fov);
+            *self.view_proj.borrow_mut() = Some(
+                view::perspective_rh(&self.config, width as f32, height as f32) * camera.view(),
+            );
+        }
+
         queue.write_buffer(
             &self.view_proj_buffer,
             0,
-            bytemuck::cast_slice(AsRef::<[f32; 16]>::as_ref(&self.proj)),
+            bytemuck::cast_slice(AsRef::<[f32; 16]>::as_ref(
+                self.view_proj.borrow().as_ref().unwrap(),
+            )),
         );
 
         let frame = surface
@@ -151,7 +178,7 @@ impl Renderer for TriangleRenderer<'_> {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
