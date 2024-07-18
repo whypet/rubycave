@@ -1,7 +1,5 @@
 use rubycave::glam::{Affine3A, EulerRot, Mat4, Quat, Vec3};
 
-use crate::config::Config;
-
 #[derive(Default)]
 pub struct Camera {
     is_updated: bool,
@@ -37,6 +35,6 @@ impl Camera {
     }
 }
 
-pub fn perspective_rh(config: &Config, width: f32, height: f32) -> Mat4 {
-    Mat4::perspective_rh(config.fov.to_radians(), width / height, 0.1, 100.0)
+pub fn perspective_rh(fov: f32, width: u32, height: u32) -> Mat4 {
+    Mat4::perspective_rh(fov, width as f32 / height as f32, 0.1, 100.0)
 }

@@ -13,8 +13,8 @@ pub struct WorldRenderer<'a> {
     state: Rc<State<'a>>,
     config: Rc<Config>,
 
-    view_proj_buffer: wgpu::Buffer,
-    view_proj_bind_group: wgpu::BindGroup,
+    bind_group: wgpu::BindGroup,
+    vp_buffer: wgpu::Buffer,
 
     view_proj: Option<Mat4>,
     camera: Rc<RefCell<Camera>>,
@@ -26,34 +26,19 @@ impl<'a> WorldRenderer<'a> {
     pub fn new(state: Rc<State<'a>>, config: Rc<Config>, camera: Rc<RefCell<Camera>>) -> Self {
         let device: &wgpu::Device = &state.device;
 
-        let view_proj_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("view_proj_buffer"),
-            size: (size_of::<f32>() * 16) as wgpu::BufferAddress,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
+        let (vp_buffer, vp_entry) = super::create_view_proj(device, Some("Triangle renderer"), 0);
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("view_proj_bind_group_layout"),
+            entries: &[vp_entry],
         });
 
-        let view_proj_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("view_proj_bind_group_layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
-
-        let view_proj_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("view_proj_bind_group"),
-            layout: &view_proj_bind_group_layout,
+            layout: &bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: view_proj_buffer.as_entire_binding(),
+                binding: vp_entry.binding,
+                resource: vp_buffer.as_entire_binding(),
             }],
         });
 
@@ -61,8 +46,8 @@ impl<'a> WorldRenderer<'a> {
             state,
             config,
 
-            view_proj_bind_group,
-            view_proj_buffer,
+            bind_group,
+            vp_buffer,
 
             view_proj: None,
             camera,
@@ -85,13 +70,11 @@ impl Renderer for WorldRenderer<'_> {
             let (width, height) = self.state.surface_config.get_size();
 
             self.fov = config_fov;
-            self.view_proj = Some(
-                view::perspective_rh(&self.config, width as f32, height as f32) * camera.view(),
-            );
+            self.view_proj = Some(view::perspective_rh(self.fov, width, height) * camera.view());
         }
 
         queue.write_buffer(
-            &self.view_proj_buffer,
+            &self.vp_buffer,
             0,
             bytemuck::cast_slice(AsRef::<[f32; 16]>::as_ref(self.view_proj.as_ref().unwrap())),
         );
@@ -122,7 +105,7 @@ impl Renderer for WorldRenderer<'_> {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            rpass.set_bind_group(0, &self.view_proj_bind_group, &[]);
+            rpass.set_bind_group(0, &self.bind_group, &[]);
             rpass.draw(0..3, 0..1);
         }
 

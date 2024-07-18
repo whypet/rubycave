@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{self, Read},
-    path::{Path, PathBuf},
+    path::{self, Path, PathBuf},
 };
 
 pub const DIR_SHADER: &str = "shader";
@@ -23,12 +23,20 @@ impl ResourceManager {
         }
     }
 
-    pub fn get(&self, subdir: impl AsRef<str>) -> Resource {
+    pub fn get(&self, location: impl AsRef<str>) -> Resource {
         Resource {
             root: self.path.as_path(),
-            location: subdir.as_ref().into(),
+            location: location.as_ref().into(),
             file: None,
         }
+    }
+
+    pub fn get_in(&self, subdir: &str, file: impl AsRef<str>) -> Resource {
+        let file: &str = file.as_ref().into();
+
+        assert!(!file.contains("/") && !file.contains(path::MAIN_SEPARATOR));
+
+        self.get(subdir.to_owned() + file)
     }
 }
 
