@@ -7,7 +7,8 @@ pub mod world;
 
 pub trait Renderer {
     fn update(&mut self);
-    fn render<'p, 'a: 'p>(&'a mut self, pass: &mut wgpu::RenderPass<'p>);
+    fn render<'p, 'a: 'p>(&'a mut self, frame_view: &wgpu::TextureView) -> wgpu::CommandBuffer;
+    fn resize(&mut self, width: u32, height: u32);
 }
 
 pub trait SizedSurface {
@@ -93,9 +94,17 @@ impl<'w> State<'w> {
             .expect("failed to acquire next swap chain texture")
     }
 
-    pub fn create_command_encoder(&self) -> wgpu::CommandEncoder {
-        self.device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None })
+    pub fn create_command_encoder(&self, label: Option<&str>) -> wgpu::CommandEncoder {
+        if let Some(label) = label {
+            let label = label.to_owned() + " command encoder";
+            self.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some(label.as_str()),
+                })
+        } else {
+            self.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label })
+        }
     }
 
     pub fn submit(&self, commands: wgpu::CommandBuffer) {
@@ -132,12 +141,61 @@ pub fn create_buffer(
     })
 }
 
+pub fn create_texture(
+    device: &wgpu::Device,
+    label: Option<&str>,
+    width: u32,
+    height: u32,
+    format: wgpu::TextureFormat,
+    usage: wgpu::TextureUsages,
+) -> wgpu::Texture {
+    let mut desc = wgpu::TextureDescriptor {
+        label: None,
+        size: wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format,
+        usage,
+        view_formats: &[],
+    };
+
+    if let Some(label) = label {
+        let label = label.to_owned() + " texture";
+        desc.label = Some(label.as_str());
+        device.create_texture(&desc)
+    } else {
+        device.create_texture(&desc)
+    }
+}
+
 pub fn create_buffer_mat4(
     device: &wgpu::Device,
     label: Option<&str>,
     usage: wgpu::BufferUsages,
 ) -> wgpu::Buffer {
     create_buffer(device, label, size_of::<f32>() * 16, usage)
+}
+
+pub fn create_depth_texture(
+    device: &wgpu::Device,
+    label: Option<&str>,
+    width: u32,
+    height: u32,
+    format: wgpu::TextureFormat,
+) -> wgpu::Texture {
+    let usage = wgpu::TextureUsages::RENDER_ATTACHMENT;
+
+    if let Some(label) = label {
+        let label = label.to_owned() + " depth";
+        create_texture(device, Some(label.as_str()), width, height, format, usage)
+    } else {
+        create_texture(device, label, width, height, format, usage)
+    }
 }
 
 pub fn create_bind_group(
@@ -300,4 +358,18 @@ pub fn create_render_pipeline(
     };
 
     (pipeline_layout, pipeline)
+}
+
+pub fn begin_render_pass<'p>(
+    encoder: &'p mut wgpu::CommandEncoder,
+    color_attachments: &[Option<wgpu::RenderPassColorAttachment<'p>>],
+    depth_stencil_attachment: Option<wgpu::RenderPassDepthStencilAttachment<'p>>,
+) -> wgpu::RenderPass<'p> {
+    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: None,
+        color_attachments,
+        depth_stencil_attachment,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+    })
 }

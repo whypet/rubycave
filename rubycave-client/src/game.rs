@@ -160,36 +160,18 @@ impl<'a> Game<'a> {
         }
 
         let frame = self.state.get_frame();
-
-        let view = frame
+        let view = &frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut renderer = self.renderer.borrow_mut();
 
-        let mut encoder = self.state.create_command_encoder();
-
-        {
-            let mut renderer = self.renderer.borrow_mut();
-
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
-
-            renderer.render(&mut pass);
-        }
-
-        self.state.submit(encoder.finish());
+        self.state.submit(renderer.render(view));
         frame.present();
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.state.resize(width, height);
+        self.renderer.borrow_mut().resize(width, height);
     }
 
     pub fn get_state(&self) -> &State {

@@ -63,7 +63,7 @@ impl ApplicationHandler for App<'_> {
                 event_loop.exit();
             }
             WindowEvent::Resized(size) => {
-                game.get_state().resize(size.width, size.height);
+                game.resize(size.width, size.height);
             }
             WindowEvent::KeyboardInput {
                 device_id: _,

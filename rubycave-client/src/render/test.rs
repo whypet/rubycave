@@ -106,9 +106,30 @@ impl Renderer for TriangleRenderer<'_> {
         );
     }
 
-    fn render<'p, 'a: 'p>(&'a mut self, pass: &mut wgpu::RenderPass<'p>) {
-        pass.set_pipeline(&self.render_pipeline);
-        pass.set_bind_group(0, &self.bind_group, &[]);
-        pass.draw(0..3, 0..1);
+    fn render<'p, 'a: 'p>(&'a mut self, frame_view: &wgpu::TextureView) -> wgpu::CommandBuffer {
+        let mut encoder = self.state.create_command_encoder(Some(LABEL));
+
+        {
+            let mut pass = super::begin_render_pass(
+                &mut encoder,
+                &[Some(wgpu::RenderPassColorAttachment {
+                    view: frame_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                None,
+            );
+
+            pass.set_pipeline(&self.render_pipeline);
+            pass.set_bind_group(0, &self.bind_group, &[]);
+            pass.draw(0..3, 0..1);
+        }
+
+        encoder.finish()
     }
+
+    fn resize(&mut self, _: u32, _: u32) {}
 }

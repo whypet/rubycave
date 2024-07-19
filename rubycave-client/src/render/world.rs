@@ -10,12 +10,14 @@ use super::{
 };
 
 const LABEL: &str = "Chunk renderer";
+const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
 
 pub struct ChunkRenderer<'a> {
     state: Rc<State<'a>>,
     config: Rc<Config>,
 
     render_pipeline: wgpu::RenderPipeline,
+    depth_view: wgpu::TextureView,
     bind_group: wgpu::BindGroup,
     vp_buffer: wgpu::Buffer,
 
@@ -56,6 +58,9 @@ impl<'a> ChunkRenderer<'a> {
             }],
         );
 
+        let (width, height) = state.surface_config.get_size();
+        let depth_view = Self::create_depth_view(&state, width, height);
+
         let swap_format = super::get_swap_format(surface, adapter);
         let tgt_state = super::get_target_state(swap_format, wgpu::BlendState::REPLACE);
 
@@ -66,7 +71,13 @@ impl<'a> ChunkRenderer<'a> {
             super::get_vert_state(&shader, &[]),
             super::get_frag_state(&shader, &[Some(tgt_state)]),
             super::get_raster_state(false),
-            None,
+            Some(wgpu::DepthStencilState {
+                format: DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
         );
 
         Self {
@@ -74,6 +85,7 @@ impl<'a> ChunkRenderer<'a> {
             config,
 
             render_pipeline,
+            depth_view,
             bind_group,
             vp_buffer,
 
@@ -82,6 +94,13 @@ impl<'a> ChunkRenderer<'a> {
 
             fov: 0.0,
         }
+    }
+
+    fn create_depth_view(state: &State, width: u32, height: u32) -> wgpu::TextureView {
+        let device = &state.device;
+
+        super::create_depth_texture(device, Some(LABEL), width, height, DEPTH_FORMAT)
+            .create_view(&wgpu::TextureViewDescriptor::default())
     }
 }
 
@@ -106,9 +125,39 @@ impl Renderer for ChunkRenderer<'_> {
         );
     }
 
-    fn render<'p, 'a: 'p>(&'a mut self, pass: &mut wgpu::RenderPass<'p>) {
-        pass.set_pipeline(&self.render_pipeline);
-        pass.set_bind_group(0, &self.bind_group, &[]);
-        pass.draw(0..3, 0..1);
+    fn render<'p, 'a: 'p>(&'a mut self, frame_view: &wgpu::TextureView) -> wgpu::CommandBuffer {
+        let mut encoder = self.state.create_command_encoder(Some(LABEL));
+
+        {
+            let mut pass = super::begin_render_pass(
+                &mut encoder,
+                &[Some(wgpu::RenderPassColorAttachment {
+                    view: frame_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+            );
+
+            pass.set_pipeline(&self.render_pipeline);
+            pass.set_bind_group(0, &self.bind_group, &[]);
+            pass.draw(0..3, 0..1);
+        }
+
+        encoder.finish()
+    }
+
+    fn resize(&mut self, width: u32, height: u32) {
+        self.depth_view = Self::create_depth_view(&self.state, width, height)
     }
 }

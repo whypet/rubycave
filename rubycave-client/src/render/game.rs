@@ -26,7 +26,11 @@ impl Renderer for GameRenderer<'_> {
         self.world.update()
     }
 
-    fn render<'p, 'a: 'p>(&'a mut self, pass: &mut wgpu::RenderPass<'p>) {
-        self.world.render(pass)
+    fn render<'p, 'a: 'p>(&'a mut self, frame_view: &wgpu::TextureView) -> wgpu::CommandBuffer {
+        self.world.render(frame_view)
+    }
+
+    fn resize(&mut self, width: u32, height: u32) {
+        self.world.resize(width, height)
     }
 }
