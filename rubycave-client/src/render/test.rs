@@ -1,7 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
 use rubycave::glam::Mat4;
-use wgpu::BlendState;
 
 use crate::{config::Config, resource::ResourceManager};
 
@@ -33,12 +32,12 @@ impl<'a> TriangleRenderer<'a> {
         resource_man: Rc<ResourceManager>,
         camera: Rc<RefCell<Camera>>,
     ) -> Self {
-        let mut res = resource_man.get(crate::resource::DIR_SHADER.to_owned() + "/triangle.wgsl");
-        let source = res.read_to_str().expect("failed to read triangle shader");
-
         let surface: &wgpu::Surface = &state.surface;
         let adapter: &wgpu::Adapter = &state.adapter;
         let device: &wgpu::Device = &state.device;
+
+        let mut res = resource_man.get(crate::resource::DIR_SHADER.to_owned() + "/triangle.wgsl");
+        let source = res.read_to_str().expect("failed to read triangle shader");
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(LABEL),
@@ -58,7 +57,7 @@ impl<'a> TriangleRenderer<'a> {
         );
 
         let swap_format = super::get_swap_format(surface, adapter);
-        let tgt_state = super::get_target_state(swap_format, BlendState::REPLACE);
+        let tgt_state = super::get_target_state(swap_format, wgpu::BlendState::REPLACE);
 
         let (_, render_pipeline) = super::create_render_pipeline(
             device,
@@ -87,9 +86,7 @@ impl<'a> TriangleRenderer<'a> {
 }
 
 impl Renderer for TriangleRenderer<'_> {
-    fn render(&mut self) {
-        let surface: &wgpu::Surface = &self.state.surface;
-        let device: &wgpu::Device = &self.state.device;
+    fn update(&mut self) {
         let queue: &wgpu::Queue = &self.state.queue;
 
         let camera = self.camera.borrow();
@@ -107,39 +104,11 @@ impl Renderer for TriangleRenderer<'_> {
             0,
             bytemuck::cast_slice(AsRef::<[f32; 16]>::as_ref(self.vp.as_ref().unwrap())),
         );
+    }
 
-        let frame = surface
-            .get_current_texture()
-            .expect("failed to acquire next swap chain texture");
-
-        let view = frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        let mut encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-        {
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
-            rpass.set_pipeline(&self.render_pipeline);
-            rpass.set_bind_group(0, &self.bind_group, &[]);
-            rpass.draw(0..3, 0..1);
-        }
-
-        queue.submit(Some(encoder.finish()));
-        frame.present();
+    fn render<'p, 'a: 'p>(&'a mut self, pass: &mut wgpu::RenderPass<'p>) {
+        pass.set_pipeline(&self.render_pipeline);
+        pass.set_bind_group(0, &self.bind_group, &[]);
+        pass.draw(0..3, 0..1);
     }
 }

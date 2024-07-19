@@ -6,7 +6,8 @@ pub mod view;
 pub mod world;
 
 pub trait Renderer {
-    fn render(&mut self);
+    fn update(&mut self);
+    fn render<'p, 'a: 'p>(&'a mut self, pass: &mut wgpu::RenderPass<'p>);
 }
 
 pub trait SizedSurface {
@@ -17,22 +18,18 @@ pub trait SizedSurface {
     fn get_height(&self) -> u32;
 }
 
-pub struct State<'window> {
+pub struct State<'w> {
     #[allow(dead_code)]
     instance: wgpu::Instance,
-    surface: wgpu::Surface<'window>,
+    surface: wgpu::Surface<'w>,
     adapter: wgpu::Adapter,
     surface_config: RefCell<wgpu::SurfaceConfiguration>,
     device: wgpu::Device,
     queue: wgpu::Queue,
 }
 
-impl<'window> State<'window> {
-    pub async fn new(
-        target: impl Into<wgpu::SurfaceTarget<'window>>,
-        width: u32,
-        height: u32,
-    ) -> Self {
+impl<'w> State<'w> {
+    pub async fn new(target: impl Into<wgpu::SurfaceTarget<'w>>, width: u32, height: u32) -> Self {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
             ..Default::default()
@@ -88,6 +85,21 @@ impl<'window> State<'window> {
         config.height = height;
 
         self.surface.configure(&self.device, &config);
+    }
+
+    pub fn get_frame(&self) -> wgpu::SurfaceTexture {
+        self.surface
+            .get_current_texture()
+            .expect("failed to acquire next swap chain texture")
+    }
+
+    pub fn create_command_encoder(&self) -> wgpu::CommandEncoder {
+        self.device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None })
+    }
+
+    pub fn submit(&self, commands: wgpu::CommandBuffer) {
+        self.queue.submit(Some(commands));
     }
 }
 
