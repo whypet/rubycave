@@ -34,8 +34,6 @@ impl<'a> ChunkRenderer<'a> {
         resource_man: Rc<ResourceManager>,
         camera: Rc<RefCell<Camera>>,
     ) -> Self {
-        let surface: &wgpu::Surface = &state.surface;
-        let adapter: &wgpu::Adapter = &state.adapter;
         let device: &wgpu::Device = &state.device;
 
         let mut res = resource_man.get(crate::resource::DIR_SHADER.to_owned() + "/triangle.wgsl");
@@ -46,10 +44,9 @@ impl<'a> ChunkRenderer<'a> {
             source: wgpu::ShaderSource::Wgsl(source.as_str().into()),
         });
 
-        let (vp_buffer, vp_entry) = super::create_view_proj(device, Some(LABEL), 0);
+        let (vp_buffer, vp_entry) = state.create_view_proj(Some(LABEL), 0);
 
-        let (bind_group_layout, bind_group) = super::create_bind_group(
-            device,
+        let (bind_group_layout, bind_group) = state.create_bind_group(
             Some(LABEL),
             &[vp_entry],
             &[wgpu::BindGroupEntry {
@@ -61,11 +58,9 @@ impl<'a> ChunkRenderer<'a> {
         let (width, height) = state.surface_config.get_size();
         let depth_view = Self::create_depth_view(&state, width, height);
 
-        let swap_format = super::get_swap_format(surface, adapter);
-        let tgt_state = super::get_target_state(swap_format, wgpu::BlendState::REPLACE);
+        let tgt_state = state.get_target_state(wgpu::BlendState::REPLACE);
 
-        let (_, render_pipeline) = super::create_render_pipeline(
-            device,
+        let (_, render_pipeline) = state.create_render_pipeline(
             Some(LABEL),
             &[&bind_group_layout],
             super::get_vert_state(&shader, &[]),
@@ -97,9 +92,8 @@ impl<'a> ChunkRenderer<'a> {
     }
 
     fn create_depth_view(state: &State, width: u32, height: u32) -> wgpu::TextureView {
-        let device = &state.device;
-
-        super::create_depth_texture(device, Some(LABEL), width, height, DEPTH_FORMAT)
+        state
+            .create_depth_texture(Some(LABEL), width, height, DEPTH_FORMAT)
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
 }

@@ -88,6 +88,200 @@ impl<'w> State<'w> {
         self.surface.configure(&self.device, &config);
     }
 
+    pub fn create_buffer(
+        &self,
+        label: Option<&str>,
+        size: usize,
+        usage: wgpu::BufferUsages,
+    ) -> wgpu::Buffer {
+        self.device.create_buffer(&wgpu::BufferDescriptor {
+            label,
+            size: size as wgpu::BufferAddress,
+            usage,
+            mapped_at_creation: false,
+        })
+    }
+
+    pub fn create_texture(
+        &self,
+        label: Option<&str>,
+        width: u32,
+        height: u32,
+        format: wgpu::TextureFormat,
+        usage: wgpu::TextureUsages,
+    ) -> wgpu::Texture {
+        let mut desc = wgpu::TextureDescriptor {
+            label: None,
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage,
+            view_formats: &[],
+        };
+
+        if let Some(label) = label {
+            let label = label.to_owned() + " texture";
+            desc.label = Some(label.as_str());
+            self.device.create_texture(&desc)
+        } else {
+            self.device.create_texture(&desc)
+        }
+    }
+
+    pub fn create_buffer_mat4(
+        &self,
+        label: Option<&str>,
+        usage: wgpu::BufferUsages,
+    ) -> wgpu::Buffer {
+        self.create_buffer(label, size_of::<f32>() * 16, usage)
+    }
+
+    pub fn create_depth_texture(
+        &self,
+        label: Option<&str>,
+        width: u32,
+        height: u32,
+        format: wgpu::TextureFormat,
+    ) -> wgpu::Texture {
+        let usage = wgpu::TextureUsages::RENDER_ATTACHMENT;
+
+        if let Some(label) = label {
+            let label = label.to_owned() + " depth";
+            self.create_texture(Some(label.as_str()), width, height, format, usage)
+        } else {
+            self.create_texture(label, width, height, format, usage)
+        }
+    }
+
+    pub fn create_bind_group(
+        &self,
+        label: Option<&str>,
+        layout_entries: &[wgpu::BindGroupLayoutEntry],
+        entries: &[wgpu::BindGroupEntry],
+    ) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
+        let layout = if let Some(label) = label {
+            let label = label.to_owned() + " layout";
+
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some(label.as_str()),
+                    entries: layout_entries,
+                })
+        } else {
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: None,
+                    entries: layout_entries,
+                })
+        };
+
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label,
+            layout: &layout,
+            entries,
+        });
+
+        (layout, bind_group)
+    }
+
+    pub fn create_view_proj(
+        &self,
+        label: Option<&str>,
+        binding: u32,
+    ) -> (wgpu::Buffer, wgpu::BindGroupLayoutEntry) {
+        let usage = wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST;
+
+        let buffer = if let Some(label) = label {
+            self.create_buffer_mat4(
+                Some((label.to_owned() + " view projection matrix").as_str()),
+                usage,
+            )
+        } else {
+            self.create_buffer_mat4(None, usage)
+        };
+
+        (
+            buffer,
+            wgpu::BindGroupLayoutEntry {
+                binding,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        )
+    }
+
+    pub fn get_target_state(&self, blend: wgpu::BlendState) -> wgpu::ColorTargetState {
+        let format = self.surface.get_capabilities(&self.adapter).formats[0];
+        let blend = Some(blend);
+
+        wgpu::ColorTargetState {
+            format,
+            blend,
+            write_mask: wgpu::ColorWrites::ALL,
+        }
+    }
+
+    pub fn create_render_pipeline(
+        &self,
+        label: Option<&str>,
+        bind_group_layouts: &[&wgpu::BindGroupLayout],
+        vert_state: wgpu::VertexState,
+        frag_state: wgpu::FragmentState,
+        raster_state: wgpu::PrimitiveState,
+        depth_stencil: Option<wgpu::DepthStencilState>,
+    ) -> (wgpu::PipelineLayout, wgpu::RenderPipeline) {
+        let pipeline_layout = if let Some(label) = label {
+            let label = label.to_owned() + " pipeline layout";
+
+            self.device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some(label.as_str()),
+                    bind_group_layouts: bind_group_layouts,
+                    push_constant_ranges: &[],
+                })
+        } else {
+            self.device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: None,
+                    bind_group_layouts: bind_group_layouts,
+                    push_constant_ranges: &[],
+                })
+        };
+
+        let mut pipeline_desc = wgpu::RenderPipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            vertex: vert_state,
+            fragment: Some(frag_state),
+            primitive: raster_state,
+            depth_stencil: depth_stencil,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+        };
+
+        let pipeline = if let Some(label) = label {
+            let label = label.to_owned() + " pipeline";
+
+            pipeline_desc.label = Some(label.as_str());
+            self.device.create_render_pipeline(&pipeline_desc)
+        } else {
+            self.device.create_render_pipeline(&pipeline_desc)
+        };
+
+        (pipeline_layout, pipeline)
+    }
+
     pub fn get_frame(&self) -> wgpu::SurfaceTexture {
         self.surface
             .get_current_texture()
@@ -127,155 +321,6 @@ impl<'window> SizedSurface for RefCell<wgpu::SurfaceConfiguration> {
     }
 }
 
-pub fn create_buffer(
-    device: &wgpu::Device,
-    label: Option<&str>,
-    size: usize,
-    usage: wgpu::BufferUsages,
-) -> wgpu::Buffer {
-    device.create_buffer(&wgpu::BufferDescriptor {
-        label,
-        size: size as wgpu::BufferAddress,
-        usage,
-        mapped_at_creation: false,
-    })
-}
-
-pub fn create_texture(
-    device: &wgpu::Device,
-    label: Option<&str>,
-    width: u32,
-    height: u32,
-    format: wgpu::TextureFormat,
-    usage: wgpu::TextureUsages,
-) -> wgpu::Texture {
-    let mut desc = wgpu::TextureDescriptor {
-        label: None,
-        size: wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format,
-        usage,
-        view_formats: &[],
-    };
-
-    if let Some(label) = label {
-        let label = label.to_owned() + " texture";
-        desc.label = Some(label.as_str());
-        device.create_texture(&desc)
-    } else {
-        device.create_texture(&desc)
-    }
-}
-
-pub fn create_buffer_mat4(
-    device: &wgpu::Device,
-    label: Option<&str>,
-    usage: wgpu::BufferUsages,
-) -> wgpu::Buffer {
-    create_buffer(device, label, size_of::<f32>() * 16, usage)
-}
-
-pub fn create_depth_texture(
-    device: &wgpu::Device,
-    label: Option<&str>,
-    width: u32,
-    height: u32,
-    format: wgpu::TextureFormat,
-) -> wgpu::Texture {
-    let usage = wgpu::TextureUsages::RENDER_ATTACHMENT;
-
-    if let Some(label) = label {
-        let label = label.to_owned() + " depth";
-        create_texture(device, Some(label.as_str()), width, height, format, usage)
-    } else {
-        create_texture(device, label, width, height, format, usage)
-    }
-}
-
-pub fn create_bind_group(
-    device: &wgpu::Device,
-    label: Option<&str>,
-    layout_entries: &[wgpu::BindGroupLayoutEntry],
-    entries: &[wgpu::BindGroupEntry],
-) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
-    let layout = if let Some(label) = label {
-        let label = label.to_owned() + " layout";
-
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(label.as_str()),
-            entries: layout_entries,
-        })
-    } else {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: None,
-            entries: layout_entries,
-        })
-    };
-
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label,
-        layout: &layout,
-        entries,
-    });
-
-    (layout, bind_group)
-}
-
-pub fn create_view_proj(
-    device: &wgpu::Device,
-    label: Option<&str>,
-    binding: u32,
-) -> (wgpu::Buffer, wgpu::BindGroupLayoutEntry) {
-    let usage = wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST;
-
-    let buffer = if let Some(label) = label {
-        create_buffer_mat4(
-            device,
-            Some((label.to_owned() + " view projection matrix").as_str()),
-            usage,
-        )
-    } else {
-        create_buffer_mat4(device, None, usage)
-    };
-
-    (
-        buffer,
-        wgpu::BindGroupLayoutEntry {
-            binding,
-            visibility: wgpu::ShaderStages::VERTEX,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        },
-    )
-}
-
-pub fn get_swap_format(surface: &wgpu::Surface, adapter: &wgpu::Adapter) -> wgpu::TextureFormat {
-    surface.get_capabilities(&adapter).formats[0]
-}
-
-pub fn get_target_state(
-    format: wgpu::TextureFormat,
-    blend: wgpu::BlendState,
-) -> wgpu::ColorTargetState {
-    let blend = Some(blend);
-
-    wgpu::ColorTargetState {
-        format,
-        blend,
-        write_mask: wgpu::ColorWrites::ALL,
-    }
-}
-
 pub fn get_vert_state<'s, 'b: 's>(
     shader: &'s wgpu::ShaderModule,
     buffers: &'b [wgpu::VertexBufferLayout<'b>],
@@ -310,54 +355,6 @@ pub fn get_raster_state(cull: bool) -> wgpu::PrimitiveState {
         polygon_mode: wgpu::PolygonMode::Fill,
         conservative: false,
     }
-}
-
-pub fn create_render_pipeline(
-    device: &wgpu::Device,
-    label: Option<&str>,
-    bind_group_layouts: &[&wgpu::BindGroupLayout],
-    vert_state: wgpu::VertexState,
-    frag_state: wgpu::FragmentState,
-    raster_state: wgpu::PrimitiveState,
-    depth_stencil: Option<wgpu::DepthStencilState>,
-) -> (wgpu::PipelineLayout, wgpu::RenderPipeline) {
-    let pipeline_layout = if let Some(label) = label {
-        let label = label.to_owned() + " pipeline layout";
-
-        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some(label.as_str()),
-            bind_group_layouts: bind_group_layouts,
-            push_constant_ranges: &[],
-        })
-    } else {
-        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: bind_group_layouts,
-            push_constant_ranges: &[],
-        })
-    };
-
-    let mut pipeline_desc = wgpu::RenderPipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        vertex: vert_state,
-        fragment: Some(frag_state),
-        primitive: raster_state,
-        depth_stencil: depth_stencil,
-        multisample: wgpu::MultisampleState::default(),
-        multiview: None,
-    };
-
-    let pipeline = if let Some(label) = label {
-        let label = label.to_owned() + " pipeline";
-
-        pipeline_desc.label = Some(label.as_str());
-        device.create_render_pipeline(&pipeline_desc)
-    } else {
-        device.create_render_pipeline(&pipeline_desc)
-    };
-
-    (pipeline_layout, pipeline)
 }
 
 pub fn begin_render_pass<'p>(
