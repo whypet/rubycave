@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let out_dir = env::var("OUT_DIR")?;
     let out_dir = Path::new(&out_dir);
 
-    let client_path = out_dir.join("../../../minecraft_client.jar");
+    let client_path = out_dir.join("../../minecraft_client.jar");
 
     let client_file = File::open(&client_path);
     let client_file = if client_file.is_err() {
