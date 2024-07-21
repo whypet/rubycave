@@ -34,7 +34,9 @@ impl<'a> Game<'a> {
         height: u32,
     ) -> io::Result<Self> {
         let state = Rc::new(State::new(target, width, height).await);
-        let resource_man = Rc::new(ResourceManager::new(env::current_exe()?.parent().unwrap()));
+        let resource_man = Rc::new(ResourceManager::new(
+            env::current_exe()?.parent().unwrap().join("res").as_path(),
+        ));
         let player = Rc::new(RefCell::new(Player::new(Vec3::ZERO)));
         let camera = Rc::new(RefCell::new(Camera::new(
             Vec3::new(0.0, 0.0, 3.0),

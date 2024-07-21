@@ -1,19 +1,21 @@
 use glob::glob;
-use std::{env, fs, path::PathBuf};
+use std::{env, error::Error, fs, path::PathBuf};
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let mut target_dir: PathBuf = env::var("OUT_DIR").unwrap().into();
 
     // Get the target directory (currently no environment variable for this)
     target_dir.pop();
     target_dir.pop();
     target_dir.pop();
+    target_dir.push("res");
 
-    let mut res_dir = env::current_dir().expect("failed to get current directory");
+    if !target_dir.is_dir() {
+        fs::create_dir(&target_dir)?;
+    }
+
+    let mut res_dir = env::current_dir()?;
     res_dir.push("res");
-
-    // let cond = out_dir.ends_with('/') || out_dir.ends_with(path::MAIN_SEPARATOR);
-    // let pattern = &(out_dir + if cond { "**/*" } else { "/**/*" });
 
     let mut pattern = res_dir.clone();
     pattern.push("**/*");
@@ -21,17 +23,17 @@ fn main() {
     for entry in glob(pattern.to_str().unwrap())
         .expect(&format!("glob failed for pattern: '{}'", pattern.display()))
     {
-        let entry_path = entry.expect("entry failure");
+        let entry = entry?;
 
-        if !entry_path.is_file() {
+        if !entry.is_file() {
             continue;
         }
 
-        println!("cargo::rerun-if-changed={}", entry_path.to_str().unwrap());
+        println!("cargo::rerun-if-changed={}", entry.to_str().unwrap());
 
-        let stripped = entry_path.strip_prefix(&res_dir).expect(&format!(
+        let stripped = entry.strip_prefix(&res_dir).expect(&format!(
             "failed to strip prefix '{}' from '{}'",
-            entry_path.display(),
+            entry.display(),
             res_dir.display()
         ));
 
@@ -44,10 +46,12 @@ fn main() {
             "failed to recursively create directories for: '{}'",
             parent.display()
         ));
-        fs::copy(&entry_path, &new_path).expect(&format!(
+        fs::copy(&entry, &new_path).expect(&format!(
             "failed to copy file '{}' to '{}'",
-            entry_path.display(),
+            entry.display(),
             new_path.display()
         ));
     }
+
+    Ok(())
 }

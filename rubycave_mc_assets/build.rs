@@ -55,13 +55,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let res_dir = out_dir.join("../../../res");
+    let tex_dir = res_dir.join("texture");
 
-    if !res_dir.is_dir() {
-        fs::create_dir(&res_dir)?;
+    if !tex_dir.is_dir() {
+        fs::create_dir_all(&tex_dir)?;
     }
 
     convert_terrain(File::open(&client_dir.join("terrain.png"))?)?
-        .save(res_dir.join("terrain.png"))?;
+        .save(tex_dir.join("terrain.png"))?;
 
     Ok(())
 }
