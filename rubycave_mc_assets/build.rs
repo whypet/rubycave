@@ -1,42 +1,67 @@
-use std::{env, error::Error, fs::File, io, path::Path};
+use std::{
+    env,
+    error::Error,
+    fs::{self, File},
+    io::{self, BufReader},
+    path::Path,
+};
 
+use image::{codecs::png::PngDecoder, DynamicImage, GenericImage, ImageResult};
 use zip::ZipArchive;
 
 const MC_VERSION_JSON_URL: &str = "https://meta.prismlauncher.org/v1/net.minecraft/a1.1.2_01.json";
 
-fn main() -> Result<(), Box<dyn Error>> {
-    // todo!("Download Minecraft client, extract resources and make them accessible from the crate");
+fn convert_terrain(terrain_png: File) -> ImageResult<DynamicImage> {
+    let mc_terrain_png = PngDecoder::new(BufReader::new(terrain_png))?;
+    let mc_terrain_img = DynamicImage::from_decoder(mc_terrain_png)?;
 
+    let mut terrain = DynamicImage::new_rgba8(64, 64);
+
+    terrain.copy_from(&mc_terrain_img.crop_imm(0, 0, 16, 16), 0, 0)?; // grass
+
+    Ok(terrain)
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
     let out_dir = env::var("OUT_DIR")?;
     let out_dir = Path::new(&out_dir);
 
-    let client_path = out_dir.join("../../minecraft_client.jar");
+    let client_dir = out_dir.join("../../minecraft_client");
 
-    let client_file = File::open(&client_path);
-    let client_file = if client_file.is_err() {
-        let json = reqwest::blocking::get(MC_VERSION_JSON_URL)?.text()?;
-        let json: serde_json::Value = serde_json::from_str(json.as_str())?;
+    if !client_dir.is_dir() {
+        let client_path = out_dir.join("../../minecraft_client.jar");
 
-        let url = json["mainJar"]["downloads"]["artifact"]["url"]
-            .as_str()
-            .expect("failed to get minecraft client download url");
+        let client_file = File::open(&client_path);
+        let client_file = if client_file.is_err() {
+            let json = reqwest::blocking::get(MC_VERSION_JSON_URL)?.text()?;
+            let json: serde_json::Value = serde_json::from_str(json.as_str())?;
 
-        let mut client_res = reqwest::blocking::get(url)?;
-        let mut client_file = File::create(&client_path)?;
+            let url = json["mainJar"]["downloads"]["artifact"]["url"]
+                .as_str()
+                .expect("failed to get minecraft client download url");
 
-        io::copy(&mut client_res, &mut client_file)?;
+            let mut client_res = reqwest::blocking::get(url)?;
+            let mut client_file = File::create(&client_path)?;
 
-        client_file
-    } else {
-        client_file?
-    };
+            io::copy(&mut client_res, &mut client_file)?;
 
-    let mut zip = ZipArchive::new(client_file)?;
+            client_file
+        } else {
+            client_file?
+        };
 
-    for i in 0..zip.len() {
-        let file = zip.by_index(i)?;
-        println!("file: {}", file.name());
+        let mut zip = ZipArchive::new(client_file)?;
+        zip.extract(&client_dir)?;
     }
+
+    let res_dir = out_dir.join("../../../res");
+
+    if !res_dir.is_dir() {
+        fs::create_dir(&res_dir)?;
+    }
+
+    convert_terrain(File::open(&client_dir.join("terrain.png"))?)?
+        .save(res_dir.join("terrain.png"))?;
 
     Ok(())
 }
