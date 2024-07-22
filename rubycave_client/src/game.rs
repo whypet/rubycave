@@ -7,13 +7,22 @@ use std::{
 
 use crate::{
     config::Config,
-    entity::Entity,
-    entity::Player,
-    render::{game::GameRenderer, view::Camera, Renderer, State},
-    resource::ResourceManager,
+    entity::{Entity, Player},
+    render::{self, game::GameRenderer, view::Camera, Renderer, State},
+    resource::{self, ResourceManager},
 };
 use rubycave::glam::Vec3;
 use winit::{dpi::PhysicalSize, keyboard::KeyCode};
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("io error")]
+    Io(#[from] io::Error),
+    #[error("render state error")]
+    RenderState(#[from] render::StateError),
+    #[error("resource error")]
+    Resource(#[from] resource::Error),
+}
 
 pub struct Game<'a> {
     state: Rc<State<'a>>,
@@ -32,8 +41,8 @@ impl<'a> Game<'a> {
         config: Rc<Config>,
         width: u32,
         height: u32,
-    ) -> io::Result<Self> {
-        let state = Rc::new(State::new(target, width, height).await);
+    ) -> Result<Self, Error> {
+        let state = Rc::new(State::new(target, width, height).await?);
         let resource_man = Rc::new(ResourceManager::new(
             env::current_exe()?.parent().unwrap().join("res").as_path(),
         ));
@@ -48,7 +57,7 @@ impl<'a> Game<'a> {
             config: config.clone(),
             player,
             camera: camera.clone(),
-            renderer: RefCell::new(GameRenderer::new(state, config, resource_man, camera)),
+            renderer: RefCell::new(GameRenderer::new(state, config, resource_man, camera)?),
             last_update: Instant::now(),
             wasdqe: Default::default(),
             rot: Vec3::ZERO,
@@ -145,7 +154,7 @@ impl<'a> Game<'a> {
         self.renderer.borrow_mut().update();
     }
 
-    pub fn render(&self) {
+    pub fn render(&self) -> Result<(), render::StateError> {
         {
             let mut camera = self.camera.borrow_mut();
             let player = self.player.borrow();
@@ -161,7 +170,7 @@ impl<'a> Game<'a> {
             }
         }
 
-        let frame = self.state.get_frame();
+        let frame = self.state.get_frame()?;
         let view = &frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -169,6 +178,8 @@ impl<'a> Game<'a> {
 
         self.state.submit(renderer.render(view));
         frame.present();
+
+        Ok(())
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {

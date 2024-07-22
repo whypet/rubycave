@@ -1,16 +1,16 @@
 #![feature(trait_alias)]
 
-use ::winit::event_loop::{ControlFlow, EventLoop};
 use color_eyre::{eyre::eyre, Section};
 use config::Config;
 use tracing::info;
+use winit::event_loop::{ControlFlow, EventLoop};
 
 mod config;
 mod entity;
 mod game;
 mod render;
 mod resource;
-mod winit;
+mod window;
 
 fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
@@ -27,7 +27,7 @@ fn main() -> color_eyre::eyre::Result<()> {
     let event_loop = EventLoop::new().unwrap();
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = winit::App::new(config);
+    let mut app = window::winit::App::new(config);
 
     if let Err(error) = event_loop.run_app(&mut app) {
         Err(eyre!("app failed").with_error(|| error))

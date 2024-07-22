@@ -45,7 +45,7 @@ impl ApplicationHandler for App<'_> {
         self.game = Some(
             Game::new(window, self.config.clone(), size.width, size.height)
                 .block_on()
-                .expect("failed to create game"),
+                .unwrap(),
         );
     }
 
@@ -108,7 +108,7 @@ impl ApplicationHandler for App<'_> {
             }
             WindowEvent::RedrawRequested => {
                 game.update();
-                game.render();
+                game.render().unwrap();
                 window.request_redraw();
             }
             _ => (),

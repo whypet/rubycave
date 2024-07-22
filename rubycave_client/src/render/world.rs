@@ -2,7 +2,10 @@ use std::{cell::RefCell, rc::Rc};
 
 use rubycave::glam::Mat4;
 
-use crate::{config::Config, resource::ResourceManager};
+use crate::{
+    config::Config,
+    resource::{self, ResourceManager},
+};
 
 use super::{
     view::{self, Camera},
@@ -33,11 +36,11 @@ impl<'a> ChunkRenderer<'a> {
         config: Rc<Config>,
         resource_man: Rc<ResourceManager>,
         camera: Rc<RefCell<Camera>>,
-    ) -> Self {
+    ) -> Result<Self, resource::Error> {
         let device: &wgpu::Device = &state.device;
 
         let mut res = resource_man.get(crate::resource::DIR_SHADER.to_owned() + "/triangle.wgsl");
-        let source = res.read_to_str().expect("failed to read chunk shader");
+        let source = res.read_to_str()?;
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(LABEL),
@@ -75,7 +78,7 @@ impl<'a> ChunkRenderer<'a> {
             }),
         );
 
-        Self {
+        Ok(Self {
             state,
             config,
 
@@ -88,7 +91,7 @@ impl<'a> ChunkRenderer<'a> {
             camera,
 
             fov: 0.0,
-        }
+        })
     }
 
     fn create_depth_view(state: &State, width: u32, height: u32) -> wgpu::TextureView {
@@ -96,6 +99,16 @@ impl<'a> ChunkRenderer<'a> {
             .create_depth_texture(Some(LABEL), width, height, DEPTH_FORMAT)
             .create_view(&wgpu::TextureViewDescriptor::default())
     }
+
+    /*
+    fn create_terrain_texture(state: &State, resource_man: Rc<ResourceManager>) {
+        let mut res = resource_man.get(crate::resource::DIR_TEXTURE.to_owned() + "/terrain.png");
+        let png = PngDecoder::new(BufReader::new(
+            res.open().expect("failed to open terrain atlas texture"),
+        ))
+        .expect("failed to decode terrain atlas texture as png");
+    }
+    */
 }
 
 impl Renderer for ChunkRenderer<'_> {

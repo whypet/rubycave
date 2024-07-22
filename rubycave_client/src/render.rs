@@ -19,6 +19,18 @@ pub trait SizedSurface {
     fn get_height(&self) -> u32;
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum StateError {
+    #[error("failed to create surface")]
+    SurfaceCreation(#[from] wgpu::CreateSurfaceError),
+    #[error("failed to find an appropriate adapter")]
+    AdapterRequest(),
+    #[error("failed to request device")]
+    DeviceRequest(#[from] wgpu::RequestDeviceError),
+    #[error("failed to acquire next swap chain texture")]
+    SwapChainTexture(#[from] wgpu::SurfaceError),
+}
+
 pub struct State<'w> {
     #[allow(dead_code)]
     instance: wgpu::Instance,
@@ -30,15 +42,17 @@ pub struct State<'w> {
 }
 
 impl<'w> State<'w> {
-    pub async fn new(target: impl Into<wgpu::SurfaceTarget<'w>>, width: u32, height: u32) -> Self {
+    pub async fn new(
+        target: impl Into<wgpu::SurfaceTarget<'w>>,
+        width: u32,
+        height: u32,
+    ) -> Result<Self, StateError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
 
-        let surface = instance
-            .create_surface(target)
-            .expect("failed to create surface");
+        let surface = instance.create_surface(target)?;
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -47,7 +61,7 @@ impl<'w> State<'w> {
                 compatible_surface: Some(&surface),
             })
             .await
-            .expect("failed to find an appropriate adapter");
+            .ok_or(StateError::AdapterRequest())?;
 
         let mut surface_config = surface.get_default_config(&adapter, width, height).unwrap();
         surface_config.alpha_mode = wgpu::CompositeAlphaMode::PreMultiplied;
@@ -61,22 +75,21 @@ impl<'w> State<'w> {
                 },
                 None,
             )
-            .await
-            .expect("failed to create device");
+            .await?;
 
         surface.configure(&device, &surface_config);
 
         let surface_config = RefCell::new(surface_config);
         let _ = surface_config.get_size();
 
-        Self {
+        Ok(Self {
             instance,
             surface,
             adapter,
             surface_config,
             device,
             queue,
-        }
+        })
     }
 
     pub fn resize(&self, width: u32, height: u32) {
@@ -282,10 +295,8 @@ impl<'w> State<'w> {
         (pipeline_layout, pipeline)
     }
 
-    pub fn get_frame(&self) -> wgpu::SurfaceTexture {
-        self.surface
-            .get_current_texture()
-            .expect("failed to acquire next swap chain texture")
+    pub fn get_frame(&self) -> Result<wgpu::SurfaceTexture, StateError> {
+        Ok(self.surface.get_current_texture()?)
     }
 
     pub fn create_command_encoder(&self, label: Option<&str>) -> wgpu::CommandEncoder {

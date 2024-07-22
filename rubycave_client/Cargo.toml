@@ -14,6 +14,8 @@ winit = "0.30.3"
 bytemuck = "1.16.1"
 serde = { version = "1.0.204", features = ["derive"] }
 toml = "0.8.14"
+image = "0.25.2"
+thiserror = "1.0.63"
 
 [build-dependencies]
 glob = "0.3.1"

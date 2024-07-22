@@ -2,7 +2,10 @@ use std::{cell::RefCell, rc::Rc};
 
 use rubycave::glam::Mat4;
 
-use crate::{config::Config, resource::ResourceManager};
+use crate::{
+    config::Config,
+    resource::{self, ResourceManager},
+};
 
 use super::{
     view::{self, Camera},
@@ -31,11 +34,11 @@ impl<'a> TriangleRenderer<'a> {
         config: Rc<Config>,
         resource_man: Rc<ResourceManager>,
         camera: Rc<RefCell<Camera>>,
-    ) -> Self {
+    ) -> Result<Self, resource::Error> {
         let device: &wgpu::Device = &state.device;
 
         let mut res = resource_man.get(crate::resource::DIR_SHADER.to_owned() + "/triangle.wgsl");
-        let source = res.read_to_str().expect("failed to read triangle shader");
+        let source = res.read_to_str()?;
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(LABEL),
@@ -64,7 +67,7 @@ impl<'a> TriangleRenderer<'a> {
             None,
         );
 
-        Self {
+        Ok(Self {
             state,
             config,
 
@@ -76,7 +79,7 @@ impl<'a> TriangleRenderer<'a> {
             camera,
 
             fov: 0.0,
-        }
+        })
     }
 }
 

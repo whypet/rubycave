@@ -12,12 +12,12 @@ use zip::ZipArchive;
 const MC_VERSION_JSON_URL: &str = "https://meta.prismlauncher.org/v1/net.minecraft/a1.1.2_01.json";
 
 fn convert_terrain(terrain_png: File) -> ImageResult<DynamicImage> {
-    let mc_terrain_png = PngDecoder::new(BufReader::new(terrain_png))?;
-    let mc_terrain_img = DynamicImage::from_decoder(mc_terrain_png)?;
+    let mc_terrain = PngDecoder::new(BufReader::new(terrain_png))?;
+    let mc_terrain = DynamicImage::from_decoder(mc_terrain)?;
 
     let mut terrain = DynamicImage::new_rgba8(64, 64);
 
-    terrain.copy_from(&mc_terrain_img.crop_imm(0, 0, 16, 16), 0, 0)?; // grass
+    terrain.copy_from(&mc_terrain.crop_imm(0, 0, 16, 16), 0, 0)?; // grass
 
     Ok(terrain)
 }
