@@ -1,13 +1,15 @@
 use std::{
-    error, fmt,
     fs::File,
     io::{self, Read},
     path::{self, Path, PathBuf},
 };
 
-#[derive(Debug)]
-pub struct Error {
-    source: io::Error,
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("io error")]
+    Io(#[from] io::Error),
+    #[error("couldn't convert std::path::Path to &str as it contains invalid UTF-8 characters")]
+    PathInvalidUtf8,
 }
 
 pub struct ResourceManager {
@@ -18,24 +20,6 @@ pub struct Resource<'man> {
     root: &'man Path,
     location: PathBuf,
     file: Option<File>,
-}
-
-impl Error {
-    fn from_io_error(error: io::Error) -> Error {
-        Error { source: error }
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "failed to open resource")
-    }
-}
-
-impl error::Error for Error {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        Some(&self.source)
-    }
 }
 
 impl ResourceManager {
@@ -53,6 +37,10 @@ impl ResourceManager {
         }
     }
 
+    pub fn get_from_path(&self, location: &Path) -> Result<Resource, Error> {
+        Ok(self.get(location.to_str().ok_or(Error::PathInvalidUtf8)?))
+    }
+
     pub fn get_in(&self, subdir: &str, file: impl AsRef<str>) -> Resource {
         let file: &str = file.as_ref().into();
 
@@ -65,8 +53,7 @@ impl ResourceManager {
 impl<'a> Resource<'a> {
     pub fn open(&'a mut self) -> Result<&'a File, Error> {
         if self.file.is_none() {
-            let file = File::open(self.root.join(&self.location).as_path())
-                .map_err(Error::from_io_error)?;
+            let file = File::open(self.root.join(&self.location).as_path())?;
             self.file = Some(file);
         }
 
@@ -77,8 +64,7 @@ impl<'a> Resource<'a> {
         let mut file = self.open()?;
 
         let mut source = String::new();
-        file.read_to_string(&mut source)
-            .map_err(Error::from_io_error)?;
+        file.read_to_string(&mut source)?;
 
         Ok(source)
     }
