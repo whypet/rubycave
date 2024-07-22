@@ -37,7 +37,7 @@ impl<'a> TriangleRenderer<'a> {
     ) -> Result<Self, resource::Error> {
         let device: &wgpu::Device = &state.device;
 
-        let mut res = resource_man.get(crate::resource::DIR_SHADER.to_owned() + "/triangle.wgsl");
+        let mut res = resource_man.get(crate::SHADER_DIR.to_owned() + "/triangle.wgsl");
         let source = res.read_to_str()?;
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {

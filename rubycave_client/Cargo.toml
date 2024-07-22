@@ -1,5 +1,5 @@
 [package]
-name = "rubycave-client"
+name = "rubycave_client"
 version = "0.1.0"
 edition = "2021"
 
@@ -18,4 +18,5 @@ image = "0.25.2"
 thiserror = "1.0.63"
 
 [build-dependencies]
+rubycave_mc_assets = { path = "../rubycave_mc_assets" }
 glob = "0.3.1"

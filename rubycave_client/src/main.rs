@@ -12,6 +12,9 @@ mod render;
 mod resource;
 mod window;
 
+pub const TEXTURE_DIR: &str = env!("TEXTURE_DIR");
+pub const SHADER_DIR: &str = env!("SHADER_DIR");
+
 fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
 

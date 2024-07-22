@@ -5,9 +5,6 @@ use std::{
     path::{self, Path, PathBuf},
 };
 
-pub const DIR_SHADER: &str = "shader";
-pub const DIR_TEXTURE: &str = "texture";
-
 #[derive(Debug)]
 pub struct Error {
     source: io::Error,
