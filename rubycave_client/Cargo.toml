@@ -11,7 +11,7 @@ tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 wgpu = "0.20.1"
 winit = "0.30.3"
-bytemuck = "1.16.1"
+bytemuck = { version = "1.16.1", features = ["derive"] }
 serde = { version = "1.0.204", features = ["derive"] }
 toml = "0.8.14"
 image = "0.25.2"

@@ -1,9 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{
-    config::Config,
-    resource::{self, ResourceManager},
-};
+use crate::{config::Config, render, resource::ResourceManager};
 
 use super::{view::Camera, world::ChunkRenderer, Renderer, State};
 
@@ -17,7 +14,7 @@ impl<'a> GameRenderer<'a> {
         config: Rc<Config>,
         resource_man: Rc<ResourceManager>,
         camera: Rc<RefCell<Camera>>,
-    ) -> Result<Self, resource::Error> {
+    ) -> Result<Self, render::Error> {
         Ok(Self {
             world: ChunkRenderer::new(state, config, resource_man, camera)?,
         })

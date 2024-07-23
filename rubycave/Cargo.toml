@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-glam = { version = "0.28.0", features = ["debug-glam-assert"] }
+glam = { version = "0.28.0", features = ["debug-glam-assert", "bytemuck"] }

@@ -19,7 +19,7 @@ pub enum Error {
     #[error("io error")]
     Io(#[from] io::Error),
     #[error("render state error")]
-    RenderState(#[from] render::StateError),
+    RenderState(#[from] render::Error),
     #[error("resource error")]
     Resource(#[from] resource::Error),
 }
@@ -154,7 +154,7 @@ impl<'a> Game<'a> {
         self.renderer.borrow_mut().update();
     }
 
-    pub fn render(&self) -> Result<(), render::StateError> {
+    pub fn render(&self) -> Result<(), render::Error> {
         {
             let mut camera = self.camera.borrow_mut();
             let player = self.player.borrow();
