@@ -35,7 +35,11 @@ impl ApplicationHandler for App<'_> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window = Arc::new(
             event_loop
-                .create_window(Window::default_attributes().with_transparent(true))
+                .create_window(
+                    Window::default_attributes()
+                        .with_transparent(true)
+                        .with_blur(true),
+                )
                 .unwrap(),
         );
         let size = window.inner_size();
