@@ -26,12 +26,8 @@ impl Camera {
     }
 
     pub fn view(&self) -> Affine3A {
-        Affine3A::look_to_rh(
-            self.pos,
-            Quat::from_euler(EulerRot::YXZ, self.ang.x, self.ang.y, self.ang.z)
-                .mul_vec3(Vec3::NEG_Z),
-            Vec3::Y,
-        )
+        let quat = Quat::from_euler(EulerRot::YXZ, self.ang.x, self.ang.y, self.ang.z);
+        Affine3A::look_to_rh(self.pos, quat * Vec3::NEG_Z, quat * Vec3::Y)
     }
 }
 

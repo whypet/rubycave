@@ -42,10 +42,10 @@ impl Entity for Player {
 
     fn move_head(&mut self, rot: Vec3) {
         self.head += rot;
-        self.head.y = self.head.y.clamp(
-            -std::f32::consts::FRAC_PI_2 + 0.01,
-            std::f32::consts::FRAC_PI_2 - 0.01,
-        );
+        self.head.y = self
+            .head
+            .y
+            .clamp(-std::f32::consts::FRAC_PI_2, std::f32::consts::FRAC_PI_2);
 
         let f2pi = std::f32::consts::PI * 2.0;
 
