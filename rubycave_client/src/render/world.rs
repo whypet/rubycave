@@ -19,11 +19,11 @@ const TEST_VERTICES: &[ChunkVertex] = &[
     },
     ChunkVertex {
         position: Vec3::new(-0.5, -0.5, -3.0),
-        tex_coords: Vec2::new(1.0, 0.0),
+        tex_coords: Vec2::new(0.25, 0.0),
     },
     ChunkVertex {
         position: Vec3::new(0.5, -0.5, -3.0),
-        tex_coords: Vec2::new(0.0, 1.0),
+        tex_coords: Vec2::new(0.0, 0.25),
     },
 ];
 
@@ -89,7 +89,7 @@ impl<'a> ChunkRenderer<'a> {
             Some(LABEL),
             1,
             &wgpu::SamplerDescriptor {
-                label: Some("Pixel sampler"),
+                label: None,
                 address_mode_u: wgpu::AddressMode::Repeat,
                 address_mode_v: wgpu::AddressMode::Repeat,
                 address_mode_w: wgpu::AddressMode::Repeat,

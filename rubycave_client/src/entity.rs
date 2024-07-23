@@ -18,7 +18,7 @@ pub struct Player {
 impl Player {
     pub fn new(head: Vec3) -> Self {
         Self {
-            head: head,
+            head,
             friction: 1.0 - (1.0 / 64.0),
             motion: Vec3::ZERO,
             position: Vec3::ZERO,
@@ -42,6 +42,20 @@ impl Entity for Player {
 
     fn move_head(&mut self, rot: Vec3) {
         self.head += rot;
+        self.head.y = self.head.y.clamp(
+            -std::f32::consts::FRAC_PI_2 + 0.01,
+            std::f32::consts::FRAC_PI_2 - 0.01,
+        );
+
+        let f2pi = std::f32::consts::PI * 2.0;
+
+        if self.head.x < -f2pi {
+            self.head.x += f2pi;
+        }
+
+        if self.head.x > f2pi {
+            self.head.x -= f2pi;
+        }
     }
 
     fn get_position(&self) -> Vec3 {
