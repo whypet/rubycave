@@ -1,5 +1,3 @@
-#![feature(trait_alias)]
-
 use color_eyre::{eyre::eyre, Section};
 use config::Config;
 use tracing::info;
