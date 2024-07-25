@@ -1,6 +1,9 @@
 use std::io;
 
+use rubycave::protocol::Codec;
 use tokio::net::TcpListener;
+use tokio_stream::StreamExt;
+use tokio_util::codec::Framed;
 
 pub struct TcpServer {
     listener: TcpListener,
@@ -15,9 +18,14 @@ impl TcpServer {
 
     pub async fn run(&self) -> io::Result<()> {
         loop {
-            let (stream, addr) = self.listener.accept().await?;
+            let (stream, _) = self.listener.accept().await?;
+
             tokio::spawn(async move {
-                // todo
+                let mut transport = Framed::new(stream, Codec);
+
+                while let Some(packet) = transport.next().await {
+                    // todo
+                }
             });
         }
     }

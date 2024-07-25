@@ -5,7 +5,5 @@ edition = "2021"
 
 [dependencies]
 glam = { version = "0.28.0", features = ["debug-glam-assert", "bytemuck"] }
-rkyv = { version = "0.7.44", features = ["archive_le", "std", "validation"] }
-
-[build-dependencies]
-glob = "0.3.1"
+rkyv = { version = "0.7.43", features = ["default", "validation"] }
+tokio-util = "0.7.11"
