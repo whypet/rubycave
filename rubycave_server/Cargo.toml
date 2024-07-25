@@ -1,0 +1,12 @@
+[package]
+name = "rubycave_server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+color-eyre = "0.6.3"
+rubycave = { path = "../rubycave" }
+thiserror = "1.0.63"
+tokio = { version = "1.39.1", features = ["macros", "net", "rt-multi-thread"] }
+tokio-util = { version = "0.7.11", features = ["codec"] }
+tracing = "0.1.40"

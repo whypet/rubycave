@@ -1,3 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["rubycave", "rubycave_client", "rubycave_mc_assets"]
+members = [
+    "rubycave",
+    "rubycave_client",
+    "rubycave_mc_assets",
+    "rubycave_server",
+]
