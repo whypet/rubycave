@@ -1,10 +1,7 @@
 use rkyv::{Archive, Deserialize, Serialize};
 
-pub mod client;
-pub mod server;
-
 #[derive(Archive, Deserialize, Serialize, Debug)]
 #[archive_attr(derive(Debug))]
-pub struct Handshake {
-    version: String,
+pub struct KeepAlive {
+    epoch: u64,
 }
