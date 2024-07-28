@@ -1,14 +1,14 @@
 use color_eyre::eyre;
-use tcp::TcpServer;
+use rpc::tcp::TcpServer;
 
-mod tcp;
+mod rpc;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
     let server = TcpServer::new("0.0.0.0:1616").await?;
-    server.run().await?;
+    server.run().await;
 
     Ok(())
 }

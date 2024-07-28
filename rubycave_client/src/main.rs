@@ -1,5 +1,9 @@
+use std::time::{self, SystemTime};
+
 use color_eyre::{eyre::eyre, Section};
 use config::Config;
+use rpc::{tcp::TcpClient, RpcClient};
+use rubycave::protocol::{self, Packet};
 use tracing::info;
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -8,6 +12,7 @@ mod entity;
 mod game;
 mod render;
 mod resource;
+mod rpc;
 mod window;
 
 pub const TEXTURE_DIR: &str = env!("TEXTURE_DIR");
@@ -17,6 +22,28 @@ fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
 
     tracing_subscriber::fmt::init();
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+
+    // test tcp client
+    rt.block_on(async {
+        let mut client = TcpClient::new("127.0.0.1:1616").await.unwrap();
+
+        client
+            .send(Packet::Client(protocol::client::Packet::KeepAlive {
+                epoch: SystemTime::now()
+                    .duration_since(time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+            }))
+            .await;
+
+        while let Some(Ok(packet)) = client.receive().await {
+            println!("Received: {:?}", packet);
+        }
+    });
 
     let config = Config {
         fov: 70.0,
