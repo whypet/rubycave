@@ -6,3 +6,7 @@ pub trait RpcClient {
     async fn send(&mut self, packet: Packet);
     async fn receive(&mut self) -> Option<Result<Packet, RkyvCodecError>>;
 }
+
+pub enum Client {
+    Tcp(tcp::TcpClient),
+}

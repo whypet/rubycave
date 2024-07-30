@@ -10,6 +10,7 @@ use crate::{
     entity::{Entity, Player},
     render::{self, game::GameRenderer, view::Camera, Renderer, State},
     resource::{self, ResourceManager},
+    rpc,
 };
 use rubycave::glam::Vec3;
 use winit::{dpi::PhysicalSize, keyboard::KeyCode};
@@ -27,6 +28,7 @@ pub enum Error {
 pub struct Game<'a> {
     state: Rc<State<'a>>,
     config: Rc<Config>,
+    net: Option<rpc::Client>,
     player: Rc<RefCell<Player>>,
     camera: Rc<RefCell<Camera>>,
     renderer: RefCell<GameRenderer<'a>>,
@@ -42,6 +44,8 @@ impl<'a> Game<'a> {
         width: u32,
         height: u32,
     ) -> Result<Self, Error> {
+        let net = None; // Some(rpc::Client::Tcp(TcpClient::new("127.0.0.1:1616").await?));
+
         let state = Rc::new(State::new(target, width, height).await?);
         let resource_man = Rc::new(ResourceManager::new(
             env::current_exe()?.parent().unwrap().join("res").as_path(),
@@ -55,6 +59,7 @@ impl<'a> Game<'a> {
         Ok(Self {
             state: state.clone(),
             config: config.clone(),
+            net,
             player,
             camera: camera.clone(),
             renderer: RefCell::new(GameRenderer::new(state, config, resource_man, camera)?),

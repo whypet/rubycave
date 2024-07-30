@@ -17,6 +17,7 @@ pub struct TcpClient {
 impl TcpClient {
     pub async fn new(addr: &str) -> io::Result<Self> {
         let stream = TcpStream::connect(addr).await?;
+        stream.set_nodelay(true)?;
 
         Ok(Self { stream })
     }

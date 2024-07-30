@@ -1,6 +1,6 @@
-use std::{rc::Rc, sync::Arc};
+use std::{io, rc::Rc, sync::Arc};
 
-use pollster::FutureExt;
+use tokio::runtime::{Builder, Runtime};
 use tracing::{debug, error, info};
 use winit::{
     application::ApplicationHandler,
@@ -14,6 +14,7 @@ use winit::{
 use crate::{config::Config, game::Game};
 
 pub struct App<'a> {
+    rt: Runtime,
     config: Rc<Config>,
     window: Option<Arc<Window>>,
     game: Option<Game<'a>>,
@@ -21,13 +22,20 @@ pub struct App<'a> {
 }
 
 impl<'a> App<'a> {
-    pub fn new(config: Config) -> Self {
-        Self {
+    pub fn new(config: Config) -> io::Result<Self> {
+        let rt = Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .build()
+            .unwrap();
+
+        Ok(Self {
+            rt,
             config: Rc::new(config),
             window: None,
             game: None,
             focused: false,
-        }
+        })
     }
 }
 
@@ -46,11 +54,11 @@ impl ApplicationHandler for App<'_> {
 
         self.window = Some(window.clone());
 
-        self.game = Some(
+        self.game = Some(self.rt.block_on(async {
             Game::new(window, self.config.clone(), size.width, size.height)
-                .block_on()
-                .unwrap(),
-        );
+                .await
+                .unwrap()
+        }));
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {

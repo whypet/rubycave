@@ -3,7 +3,7 @@ use rpc::tcp::TcpServer;
 
 mod rpc;
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 

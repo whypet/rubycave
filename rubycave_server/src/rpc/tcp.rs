@@ -31,24 +31,28 @@ impl TcpServer {
 
     pub async fn run(&self) -> Option<()> {
         loop {
-            let Some(mut framed) = self.accept().await else {
+            let Some(framed) = self.accept().await else {
                 return None;
             };
 
-            tokio::spawn(async move {
-                framed
-                    .send(Packet::Handshake {
-                        version: env!("CARGO_PKG_VERSION").to_owned(),
-                    })
-                    .await?;
-
-                while let Ok(Ok(packet)) = framed.next().await.ok_or(Error::Receive) {
-                    println!("Received: {:?}", packet);
-                }
-
-                Result::<(), Error>::Ok(())
-            });
+            tokio::spawn(Self::process(framed));
         }
+    }
+
+    async fn process(
+        mut framed: Framed<TcpStream, RkyvCodec<Packet, VarintLength>>,
+    ) -> Result<(), Error> {
+        framed
+            .send(Packet::Handshake {
+                version: env!("CARGO_PKG_VERSION").to_owned(),
+            })
+            .await?;
+
+        while let Ok(Ok(packet)) = framed.next().await.ok_or(Error::Receive) {
+            println!("Received: {:?}", packet);
+        }
+
+        Ok(())
     }
 }
 
