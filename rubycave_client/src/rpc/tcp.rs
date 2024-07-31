@@ -8,7 +8,7 @@ use rubycave::{
 use tokio::net::TcpStream;
 use tokio_util::codec::{FramedRead, FramedWrite};
 
-use super::RpcClient;
+use super::Client;
 
 pub struct TcpClient {
     stream: TcpStream,
@@ -23,7 +23,7 @@ impl TcpClient {
     }
 }
 
-impl RpcClient for TcpClient {
+impl Client for TcpClient {
     async fn send(&mut self, packet: Packet) {
         let mut transport = FramedWrite::new(
             &mut self.stream,

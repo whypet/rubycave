@@ -8,7 +8,7 @@ use rubycave::{
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Framed;
 
-use super::RpcServer;
+use super::Server;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -56,7 +56,7 @@ impl TcpServer {
     }
 }
 
-impl RpcServer<TcpStream> for TcpServer {
+impl Server<TcpStream> for TcpServer {
     async fn accept(&self) -> Option<Framed<TcpStream, RkyvCodec<Packet, VarintLength>>> {
         let Ok((stream, _)) = self.listener.accept().await else {
             return None;

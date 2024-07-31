@@ -6,6 +6,6 @@ use tokio_util::codec::Framed;
 
 pub mod tcp;
 
-pub trait RpcServer<T> {
+pub trait Server<T> {
     async fn accept(&self) -> Option<Framed<T, RkyvCodec<Packet, VarintLength>>>;
 }

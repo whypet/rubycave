@@ -119,7 +119,11 @@ impl ApplicationHandler for App<'_> {
                 }
             }
             WindowEvent::RedrawRequested => {
-                game.update();
+                {
+                    let _guard = self.rt.enter();
+                    game.update().unwrap();
+                }
+
                 game.render().unwrap();
                 window.request_redraw();
             }

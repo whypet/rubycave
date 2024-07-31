@@ -2,6 +2,7 @@ use std::{
     cell::{Ref, RefCell},
     env, io,
     rc::Rc,
+    sync::{Arc, RwLock},
     time::Instant,
 };
 
@@ -9,26 +10,33 @@ use crate::{
     config::Config,
     entity::{Entity, Player},
     render::{self, game::GameRenderer, view::Camera, Renderer, State},
-    resource::{self, ResourceManager},
-    rpc,
+    resource::ResourceManager,
+    rpc::{tcp::TcpClient, Client},
 };
-use rubycave::glam::Vec3;
+use rubycave::{glam::Vec3, protocol::Packet};
+use tokio::{runtime::Handle, task::JoinHandle};
+use tracing::info;
 use winit::{dpi::PhysicalSize, keyboard::KeyCode};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("io error")]
     Io(#[from] io::Error),
-    #[error("render state error")]
-    RenderState(#[from] render::Error),
-    #[error("resource error")]
-    Resource(#[from] resource::Error),
+    #[error("task join error")]
+    Join(#[from] tokio::task::JoinError),
+    #[error("render error")]
+    Render(#[from] render::Error),
+    #[error("rpc client receive error")]
+    Receive(),
+    #[error("rwlock error")]
+    Lock(),
 }
 
 pub struct Game<'a> {
+    net_task: Option<JoinHandle<Result<(), Error>>>,
+    packet_queue: Arc<RwLock<Vec<Packet>>>,
     state: Rc<State<'a>>,
     config: Rc<Config>,
-    net: Option<rpc::Client>,
     player: Rc<RefCell<Player>>,
     camera: Rc<RefCell<Camera>>,
     renderer: RefCell<GameRenderer<'a>>,
@@ -44,8 +52,6 @@ impl<'a> Game<'a> {
         width: u32,
         height: u32,
     ) -> Result<Self, Error> {
-        let net = None; // Some(rpc::Client::Tcp(TcpClient::new("127.0.0.1:1616").await?));
-
         let state = Rc::new(State::new(target, width, height).await?);
         let resource_man = Rc::new(ResourceManager::new(
             env::current_exe()?.parent().unwrap().join("res").as_path(),
@@ -57,9 +63,10 @@ impl<'a> Game<'a> {
         )));
 
         Ok(Self {
+            net_task: None,
+            packet_queue: Arc::new(RwLock::new(Vec::new())),
             state: state.clone(),
             config: config.clone(),
-            net,
             player,
             camera: camera.clone(),
             renderer: RefCell::new(GameRenderer::new(state, config, resource_man, camera)?),
@@ -101,7 +108,16 @@ impl<'a> Game<'a> {
         );
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self) -> Result<(), Error> {
+        if self.net_task.is_none() {
+            let queue = self.packet_queue.clone();
+            self.net_task = Some(tokio::spawn(async move { Self::net_process(queue).await }));
+        } else if let Some(net_task) = self.net_task.as_ref() {
+            if net_task.is_finished() {
+                Handle::current().block_on(self.net_task.take().unwrap())??;
+            }
+        }
+
         let mut player = self.player.borrow_mut();
         let wasd = &self.wasdqe[0..4];
         let qe = &self.wasdqe[4..6];
@@ -157,6 +173,8 @@ impl<'a> Game<'a> {
         self.last_update = Instant::now();
 
         self.renderer.borrow_mut().update();
+
+        Ok(())
     }
 
     pub fn render(&self) -> Result<(), render::Error> {
@@ -198,5 +216,33 @@ impl<'a> Game<'a> {
 
     pub fn get_camera(&self) -> Ref<Camera> {
         self.camera.borrow()
+    }
+}
+
+impl Game<'_> {
+    async fn net_process(packet_queue: Arc<RwLock<Vec<Packet>>>) -> Result<(), Error> {
+        let mut net = TcpClient::new("127.0.0.1:1616").await?;
+
+        while let Ok(Ok(packet)) = net.receive().await.ok_or(Error::Receive) {
+            info!("Received: {:?}", packet);
+
+            {
+                let Ok(mut packet_queue) = packet_queue.write() else {
+                    return Err(Error::Lock());
+                };
+
+                packet_queue.push(packet);
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl Drop for Game<'_> {
+    fn drop(&mut self) {
+        if let Some(net_task) = &self.net_task {
+            net_task.abort();
+        }
     }
 }
