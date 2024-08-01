@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, io, sync::Arc};
 
-use futures::SinkExt;
+use futures::{channel::oneshot::Cancellation, SinkExt};
 use rubycave::{
     protocol::Packet,
     rkyv_codec::{futures_stream::RkyvCodec, VarintLength},
@@ -18,12 +18,32 @@ struct TaskData {
     framed: RwLock<TcpFramed>,
     recv_queue: RwLock<VecDeque<Packet>>,
     send_queue: RwLock<VecDeque<Packet>>,
+    token: RwLock<CancellationToken>,
 }
 
 pub struct TcpClient {
     task: Option<JoinHandle<Result<(), Error>>>,
     data: Arc<TaskData>,
-    cancel: Option<CancellationToken>,
+}
+
+impl TaskData {
+    pub async fn token(&self) -> CancellationToken {
+        self.token.read().await.clone()
+    }
+
+    pub async fn cancel(&self) {
+        let token = self.token.read().await;
+        token.cancel();
+    }
+
+    pub async fn reset(&self) {
+        let mut token = self.token.write().await;
+        *token = CancellationToken::new();
+    }
+
+    pub async fn is_cancelled(&self) -> bool {
+        self.token.read().await.is_cancelled()
+    }
 }
 
 impl TcpClient {
@@ -40,41 +60,42 @@ impl TcpClient {
             framed,
             recv_queue: Default::default(),
             send_queue: Default::default(),
+            token: Default::default(),
         });
 
-        Ok(Self {
-            task: None,
-            data,
-            cancel: None,
-        })
+        Ok(Self { task: None, data })
     }
 
-    async fn process(data: Arc<TaskData>, cancel: CancellationToken) -> Result<(), Error> {
+    async fn process(data: Arc<TaskData>) -> Result<(), Error> {
         let mut framed = data.framed.write().await;
 
         loop {
-            let packet = select! {
-                p = framed.next() => p.ok_or(Error::Receive)??,
-                _ = cancel.cancelled() => break
-            };
+            let token = data.token().await;
 
-            info!("received: {:?}", packet);
+            loop {
+                let packet = select! {
+                    p = framed.next() => p.ok_or(Error::Receive)??,
+                    _ = token.cancelled() => break
+                };
+
+                info!("received: {:?}", packet);
+
+                {
+                    let mut recv_queue = data.recv_queue.write().await;
+                    recv_queue.push_back(packet);
+                }
+            }
 
             {
-                let mut recv_queue = data.recv_queue.write().await;
-                recv_queue.push_back(packet);
+                let mut send_queue = data.send_queue.write().await;
+
+                while let Some(packet) = send_queue.pop_front() {
+                    framed.send(packet).await?;
+                }
             }
+
+            data.reset().await;
         }
-
-        {
-            let mut send_queue = data.send_queue.write().await;
-
-            while let Some(packet) = send_queue.pop_front() {
-                framed.send(packet).await?;
-            }
-        }
-
-        Err(Error::Cancelled)
     }
 }
 
@@ -85,41 +106,27 @@ impl Client for TcpClient {
             send_queue.push_back(packet);
         }
 
-        if let Some(cancel) = &self.cancel {
-            cancel.cancel();
-            true
-        } else {
-            false
-        }
+        self.data.cancel().await;
+
+        true
     }
 
     async fn receive(&mut self) -> Option<Packet> {
-        {
-            let mut recv_queue = self.data.recv_queue.write().await;
-            recv_queue.pop_front()
-        }
+        let mut recv_queue = self.data.recv_queue.write().await;
+        recv_queue.pop_front()
     }
 
     async fn start(&mut self) -> bool {
         if let Some(task) = self.task.take() {
-            if let Some(cancel) = &mut self.cancel {
-                if !cancel.is_cancelled() && !task.is_finished() {
-                    return false;
-                }
+            if !self.data.is_cancelled().await && !task.is_finished() {
+                return false;
             }
 
             let _ = task.await;
         }
 
         let data = self.data.clone();
-        let cancel = CancellationToken::new();
-        let task_cancel = cancel.clone();
-
-        self.cancel = Some(cancel);
-
-        self.task = Some(tokio::spawn(async move {
-            Self::process(data, task_cancel).await
-        }));
+        self.task = Some(tokio::spawn(async move { Self::process(data).await }));
 
         true
     }
