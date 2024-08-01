@@ -42,7 +42,7 @@ impl ResourceManager {
     }
 
     pub fn get_in(&self, subdir: &str, file: impl AsRef<str>) -> Resource {
-        let file: &str = file.as_ref().into();
+        let file: &str = file.as_ref();
 
         assert!(!file.contains("/") && !file.contains(path::MAIN_SEPARATOR));
 

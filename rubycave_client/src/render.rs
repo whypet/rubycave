@@ -135,6 +135,7 @@ impl<'w> State<'w> {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn create_texture(
         &self,
         label: Option<&str>,
@@ -219,7 +220,7 @@ impl<'w> State<'w> {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &image.as_rgba8().ok_or(Error::Rgba8())?,
+            image.as_rgba8().ok_or(Error::Rgba8())?,
             wgpu::ImageDataLayout {
                 offset: 0,
                 bytes_per_row: Some(4 * tex_extent.width),
@@ -379,14 +380,14 @@ impl<'w> State<'w> {
             self.device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some(label.as_str()),
-                    bind_group_layouts: bind_group_layouts,
+                    bind_group_layouts,
                     push_constant_ranges: &[],
                 })
         } else {
             self.device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: None,
-                    bind_group_layouts: bind_group_layouts,
+                    bind_group_layouts,
                     push_constant_ranges: &[],
                 })
         };
@@ -397,7 +398,7 @@ impl<'w> State<'w> {
             vertex: vert_state,
             fragment: Some(frag_state),
             primitive: raster_state,
-            depth_stencil: depth_stencil,
+            depth_stencil,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
         };
@@ -436,7 +437,7 @@ impl<'w> State<'w> {
     }
 }
 
-impl<'window> SizedSurface for RefCell<wgpu::SurfaceConfiguration> {
+impl SizedSurface for RefCell<wgpu::SurfaceConfiguration> {
     fn get_size(&self) -> (u32, u32) {
         let surface_config = self.borrow();
         (surface_config.width, surface_config.height)
@@ -456,7 +457,7 @@ pub fn get_vert_state<'s, 'b: 's>(
     buffers: &'b [wgpu::VertexBufferLayout<'b>],
 ) -> wgpu::VertexState<'s> {
     wgpu::VertexState {
-        module: &shader,
+        module: shader,
         entry_point: "vs_main",
         buffers,
         compilation_options: Default::default(),

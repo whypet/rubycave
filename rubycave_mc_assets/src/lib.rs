@@ -18,7 +18,7 @@ fn convert_terrain(terrain_png: File) -> ImageResult<DynamicImage> {
 pub fn create_textures(output_path: &Path) -> Result<(), Box<dyn Error>> {
     let client_path = Path::new(CLIENT_PATH);
 
-    convert_terrain(File::open(&client_path.join("terrain.png"))?)?
+    convert_terrain(File::open(client_path.join("terrain.png"))?)?
         .save(output_path.join("terrain.png"))?;
 
     Ok(())

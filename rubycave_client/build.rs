@@ -8,7 +8,7 @@ use std::{
 
 fn create_dir(path: &Path, env_name: &str) -> io::Result<()> {
     if !path.is_dir() {
-        fs::create_dir(&path)?;
+        fs::create_dir(path)?;
     }
 
     println!("cargo:rustc-env={}={}", env_name, path.to_str().unwrap());
@@ -20,9 +20,7 @@ fn copy(in_dir: &Path, out_dir: &Path) -> Result<(), GlobError> {
     let mut pattern = PathBuf::from(in_dir);
     pattern.push("**/*");
 
-    for entry in glob(pattern.to_str().unwrap())
-        .expect(&format!("glob failed for pattern: '{}'", pattern.display()))
-    {
+    for entry in glob(pattern.to_str().unwrap()).expect("glob failed") {
         let entry = entry?;
 
         if !entry.is_file() {
@@ -31,26 +29,15 @@ fn copy(in_dir: &Path, out_dir: &Path) -> Result<(), GlobError> {
 
         println!("cargo::rerun-if-changed={}", entry.to_str().unwrap());
 
-        let stripped = entry.strip_prefix(in_dir).expect(&format!(
-            "failed to strip prefix '{}' from '{}'",
-            entry.display(),
-            in_dir.display()
-        ));
+        let stripped = entry.strip_prefix(in_dir).expect("failed to strip prefix");
 
         let mut new_path = PathBuf::from(out_dir);
         new_path.push(stripped);
 
         let parent = new_path.parent().unwrap();
 
-        fs::create_dir_all(parent).expect(&format!(
-            "failed to recursively create directories for: '{}'",
-            parent.display()
-        ));
-        fs::copy(&entry, &new_path).expect(&format!(
-            "failed to copy file '{}' to '{}'",
-            entry.display(),
-            new_path.display()
-        ));
+        fs::create_dir_all(parent).expect("failed to recursively create directories");
+        fs::copy(&entry, &new_path).expect("failed to copy file");
     }
 
     Ok(())
@@ -72,10 +59,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let texture_dir = &target_dir.join("texture");
     let shader_dir = &target_dir.join("shader");
 
-    create_dir(&texture_dir, "TEXTURE_DIR")?;
-    create_dir(&shader_dir, "SHADER_DIR")?;
+    create_dir(texture_dir, "TEXTURE_DIR")?;
+    create_dir(shader_dir, "SHADER_DIR")?;
 
-    rubycave_mc_assets::create_textures(&texture_dir)?;
+    rubycave_mc_assets::create_textures(texture_dir)?;
     copy(&env::current_dir()?.join("res"), &target_dir)?;
 
     Ok(())

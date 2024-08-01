@@ -144,15 +144,12 @@ impl ApplicationHandler for App<'_> {
             return;
         };
 
-        match event {
-            DeviceEvent::MouseMotion { delta } => {
-                let Some(game) = self.game.as_mut() else {
-                    return;
-                };
+        if let DeviceEvent::MouseMotion { delta } = event {
+            let Some(game) = self.game.as_mut() else {
+                return;
+            };
 
-                game.mouse_delta(delta, window.inner_size());
-            }
-            _ => {}
+            game.mouse_delta(delta, window.inner_size());
         }
     }
 }

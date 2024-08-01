@@ -31,9 +31,7 @@ impl TcpServer {
 
     pub async fn run(&self) -> Option<()> {
         loop {
-            let Some(framed) = self.accept().await else {
-                return None;
-            };
+            let framed = self.accept().await?;
 
             tokio::spawn(Self::process(framed));
         }
