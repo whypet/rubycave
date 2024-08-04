@@ -149,7 +149,7 @@ impl ApplicationHandler for App<'_> {
                 return;
             };
 
-            game.mouse_delta(delta, window.inner_size());
+            game.mouse(delta, window.inner_size());
         }
     }
 }

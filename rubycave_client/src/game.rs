@@ -13,8 +13,11 @@ use crate::{
     resource::ResourceManager,
     rpc::{self, tcp::TcpClient, Client},
 };
+use input::InputMovement;
 use rubycave::{epoch, glam::Vec3, RangeIterator};
 use winit::{dpi::PhysicalSize, keyboard::KeyCode};
+
+pub mod input;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -32,13 +35,12 @@ pub struct Game<'a> {
     game_rng: FastPrng<u32>,
     client: TcpClient,
     config: Rc<Config>,
+    input: InputMovement,
     player: Rc<RefCell<Player>>,
     state: Rc<State<'a>>,
     camera: Rc<RefCell<Camera>>,
     renderer: RefCell<GameRenderer<'a>>,
     last_update: Instant,
-    wasdqe: [bool; 6],
-    rot: Vec3,
 }
 
 impl<'a> Game<'a> {
@@ -61,6 +63,7 @@ impl<'a> Game<'a> {
 
         client.shake(&username).await?;
 
+        let input = InputMovement::new(config.clone());
         let player = Rc::new(RefCell::new(Player::new(&username, Vec3::ZERO)));
         let state = Rc::new(State::new(target, width, height).await?);
         let resource_man = Rc::new(ResourceManager::new(
@@ -75,100 +78,33 @@ impl<'a> Game<'a> {
             game_rng,
             client,
             config: config.clone(),
+            input,
             player,
             state: state.clone(),
             camera: camera.clone(),
             renderer: RefCell::new(GameRenderer::new(state, config, resource_man, camera)?),
             last_update: Instant::now(),
-            wasdqe: Default::default(),
-            rot: Vec3::ZERO,
         })
     }
 
     pub fn key(&mut self, key: KeyCode, down: bool) {
-        match key {
-            KeyCode::KeyW => {
-                self.wasdqe[0] = down;
-            }
-            KeyCode::KeyA => {
-                self.wasdqe[1] = down;
-            }
-            KeyCode::KeyS => {
-                self.wasdqe[2] = down;
-            }
-            KeyCode::KeyD => {
-                self.wasdqe[3] = down;
-            }
-            KeyCode::KeyQ | KeyCode::Space => {
-                self.wasdqe[4] = down;
-            }
-            KeyCode::KeyE | KeyCode::ShiftLeft => {
-                self.wasdqe[5] = down;
-            }
-            _ => {}
-        }
+        self.input.key(key, down)
     }
 
-    pub fn mouse_delta(&mut self, delta: (f64, f64), window_size: PhysicalSize<u32>) {
-        self.rot += Vec3::new(
-            delta.0 as f32 / window_size.width as f32,
-            delta.1 as f32 / window_size.height as f32,
-            0.0,
-        );
+    pub fn mouse(&mut self, delta: (f64, f64), window_size: PhysicalSize<u32>) {
+        self.input.mouse(delta, window_size)
     }
 
     pub fn update(&mut self) -> Result<(), Error> {
-        let mut player = self.player.borrow_mut();
-        let wasd = &self.wasdqe[0..4];
-        let qe = &self.wasdqe[4..6];
-
-        let motion_mul = Vec3::ONE * 0.1;
-
-        if wasd.iter().any(|x| *x) {
-            let mut wa_angle = self.get_camera().ang;
-            let mut sd_angle = self.get_camera().ang;
-
-            if wasd[1] {
-                wa_angle.x += if wasd[0] {
-                    std::f32::consts::FRAC_PI_4
-                } else {
-                    std::f32::consts::FRAC_PI_2
-                };
-            }
-            if wasd[3] {
-                sd_angle.x += if wasd[2] {
-                    std::f32::consts::FRAC_PI_4
-                } else {
-                    std::f32::consts::FRAC_PI_2
-                };
-            }
-
-            let wa_motion = Vec3::new(wa_angle.x.sin(), 0.0, wa_angle.x.cos())
-                * if wasd[0] || wasd[1] {
-                    -motion_mul
-                } else {
-                    Vec3::ZERO
-                };
-            let sd_motion = Vec3::new(sd_angle.x.sin(), 0.0, sd_angle.x.cos())
-                * if wasd[2] || wasd[3] {
-                    motion_mul
-                } else {
-                    Vec3::ZERO
-                };
-
-            player.move_by(wa_motion + sd_motion);
+        {
+            self.input.update(self.player.borrow_mut());
         }
 
-        if qe[0] != qe[1] {
-            player.move_by(Vec3::Y * (qe[0] as i32 - qe[1] as i32) as f32 * motion_mul);
+        {
+            self.player
+                .borrow_mut()
+                .update(self.last_update.elapsed().as_secs_f32());
         }
-
-        if self.rot != Vec3::ZERO {
-            player.move_head(-self.rot * self.config.sensitivity);
-            self.rot = Vec3::ZERO;
-        }
-
-        player.update(self.last_update.elapsed().as_secs_f32());
 
         self.last_update = Instant::now();
 
