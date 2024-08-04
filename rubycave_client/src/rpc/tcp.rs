@@ -8,7 +8,10 @@ use rubycave::{
 use tokio::{
     net::TcpStream,
     select,
-    sync::{mpsc, RwLock},
+    sync::{
+        mpsc::{self, error::TryRecvError},
+        RwLock,
+    },
     task::JoinHandle,
 };
 use tokio_stream::StreamExt;
@@ -94,7 +97,14 @@ impl Client for TcpClient {
     }
 
     async fn receive(&mut self) -> Result<Packet, Error> {
-        self.recv.recv().await.ok_or(Error::MpscRecv())
+        self.recv.recv().await.ok_or(Error::MpscClosed())
+    }
+
+    async fn poll(&mut self) -> Result<Option<Packet>, Error> {
+        match self.recv.try_recv() {
+            Err(TryRecvError::Empty) => Ok(None),
+            res => Ok(Some(res?)),
+        }
     }
 
     async fn start(&mut self) -> bool {

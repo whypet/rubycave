@@ -19,8 +19,10 @@ pub enum Error {
     RkyvCodec(#[from] RkyvCodecError),
     #[error("mpsc send error")]
     MpscSend(#[from] mpsc::error::SendError<Packet>),
-    #[error("mpsc recv error")]
-    MpscRecv(),
+    #[error("mpsc channel closed")]
+    MpscClosed(),
+    #[error("mpsc try_recv error")]
+    MpscTryRecv(#[from] mpsc::error::TryRecvError),
 }
 
 pub trait Client {
@@ -28,6 +30,7 @@ pub trait Client {
 
     async fn send(&self, packet: client::Packet) -> Result<(), Error>;
     async fn receive(&mut self) -> Result<Packet, Error>;
+    async fn poll(&mut self) -> Result<Option<Packet>, Error>;
     async fn start(&mut self) -> bool;
     async fn stop(&mut self) -> bool;
 
