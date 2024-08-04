@@ -23,20 +23,20 @@ macro_rules! prng_range_impl {
     };
 }
 
-/// Fast biased Xorshift PRNG
-#[derive(Default)]
-pub struct FastPrng<T> {
-    state: T,
-}
-
 trait PrngRange<T> {
     fn prng_bounds(&self) -> (T, T);
 }
 
-prng_range_impl!(u64);
-prng_range_impl!(i64);
+/// Fast biased Xorshift PRNG
+#[derive(Default)]
+pub struct FastPrng<T> {
+    pub state: T,
+}
+
 prng_range_impl!(u32);
 prng_range_impl!(i32);
+prng_range_impl!(u64);
+prng_range_impl!(i64);
 
 impl<T: RangeBounds<u32>> RangeIterator<T> for FastPrng<u32> {
     type Item = u32;

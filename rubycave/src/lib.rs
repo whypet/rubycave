@@ -1,4 +1,7 @@
-use std::ops::RangeBounds;
+use std::{
+    ops::RangeBounds,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 pub use glam;
 pub use regex;
@@ -25,4 +28,8 @@ impl<Item> Iterator for dyn InfiniteIterator<Item = Item> {
     fn next(&mut self) -> Option<Self::Item> {
         Some(self.next())
     }
+}
+
+pub fn epoch() -> Duration {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap()
 }

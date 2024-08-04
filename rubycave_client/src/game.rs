@@ -13,7 +13,7 @@ use crate::{
     resource::ResourceManager,
     rpc::{self, tcp::TcpClient, Client},
 };
-use rubycave::{glam::Vec3, RangeIterator};
+use rubycave::{epoch, glam::Vec3, RangeIterator};
 use winit::{dpi::PhysicalSize, keyboard::KeyCode};
 
 #[derive(thiserror::Error, Debug)]
@@ -48,7 +48,9 @@ impl<'a> Game<'a> {
         width: u32,
         height: u32,
     ) -> Result<Self, Error> {
-        let mut game_rng = FastPrng::<u32>::default();
+        let mut game_rng = FastPrng::<u32> {
+            state: epoch().as_millis() as u32,
+        };
         let username = format!("Player{:0>4}", game_rng.next_in(0..=9999));
 
         let mut client = TcpClient::new("127.0.0.1:1616").await?;
