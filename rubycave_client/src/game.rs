@@ -8,17 +8,20 @@ use std::{
 use crate::{
     config::Config,
     entity::{Entity, Player},
+    math::FastPrng,
     render::{self, game::GameRenderer, view::Camera, Renderer, State},
     resource::ResourceManager,
-    rpc::{tcp::TcpClient, Client},
+    rpc::{self, tcp::TcpClient, Client},
 };
-use rubycave::glam::Vec3;
+use rubycave::{glam::Vec3, RangeIterator};
 use winit::{dpi::PhysicalSize, keyboard::KeyCode};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("io error")]
     Io(#[from] io::Error),
+    #[error("rpc error")]
+    Rpc(#[from] rpc::Error),
     #[error("task join error")]
     Join(#[from] tokio::task::JoinError),
     #[error("render error")]
@@ -26,10 +29,11 @@ pub enum Error {
 }
 
 pub struct Game<'a> {
+    game_rng: FastPrng<u32>,
     client: TcpClient,
-    state: Rc<State<'a>>,
     config: Rc<Config>,
     player: Rc<RefCell<Player>>,
+    state: Rc<State<'a>>,
     camera: Rc<RefCell<Camera>>,
     renderer: RefCell<GameRenderer<'a>>,
     last_update: Instant,
@@ -44,27 +48,33 @@ impl<'a> Game<'a> {
         width: u32,
         height: u32,
     ) -> Result<Self, Error> {
-        let mut client = TcpClient::new("127.0.0.1:1616").await?;
+        let mut game_rng = FastPrng::<u32>::default();
+        let username = format!("Player{:0>4}", game_rng.next_in(0..=9999));
 
-        let state = Rc::new(State::new(target, width, height).await?);
-        let resource_man = Rc::new(ResourceManager::new(
-            env::current_exe()?.parent().unwrap().join("res").as_path(),
-        ));
-        let player = Rc::new(RefCell::new(Player::new(Vec3::ZERO)));
-        let camera = Rc::new(RefCell::new(Camera::new(
-            Vec3::new(0.0, 0.0, 3.0),
-            Vec3::ZERO,
-        )));
+        let mut client = TcpClient::new("127.0.0.1:1616").await?;
 
         if !client.start().await {
             panic!("couldn't start rpc client");
         }
 
+        client.shake(&username).await?;
+
+        let player = Rc::new(RefCell::new(Player::new(&username, Vec3::ZERO)));
+        let state = Rc::new(State::new(target, width, height).await?);
+        let resource_man = Rc::new(ResourceManager::new(
+            env::current_exe()?.parent().unwrap().join("res").as_path(),
+        ));
+        let camera = Rc::new(RefCell::new(Camera::new(
+            Vec3::new(0.0, 0.0, 3.0),
+            Vec3::ZERO,
+        )));
+
         Ok(Self {
+            game_rng,
             client,
-            state: state.clone(),
             config: config.clone(),
             player,
+            state: state.clone(),
             camera: camera.clone(),
             renderer: RefCell::new(GameRenderer::new(state, config, resource_man, camera)?),
             last_update: Instant::now(),

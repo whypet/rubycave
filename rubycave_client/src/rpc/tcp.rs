@@ -1,13 +1,18 @@
-use std::{collections::VecDeque, io, sync::Arc};
+use std::sync::Arc;
 
-use futures::{channel::oneshot::Cancellation, SinkExt};
+use futures::SinkExt;
 use rubycave::{
-    protocol::Packet,
+    protocol::{client, Packet, PacketValidator},
     rkyv_codec::{futures_stream::RkyvCodec, VarintLength},
 };
-use tokio::{net::TcpStream, select, sync::RwLock, task::JoinHandle};
+use tokio::{
+    net::TcpStream,
+    select,
+    sync::{mpsc, RwLock},
+    task::JoinHandle,
+};
 use tokio_stream::StreamExt;
-use tokio_util::{codec::Framed, sync::CancellationToken};
+use tokio_util::codec::Framed;
 use tracing::info;
 
 use super::{Client, Error};
@@ -16,38 +21,20 @@ type TcpFramed = Framed<TcpStream, RkyvCodec<Packet, VarintLength>>;
 
 struct TaskData {
     framed: RwLock<TcpFramed>,
-    recv_queue: RwLock<VecDeque<Packet>>,
-    send_queue: RwLock<VecDeque<Packet>>,
-    token: RwLock<CancellationToken>,
+    recv: mpsc::Sender<Packet>,
+    send: RwLock<mpsc::Receiver<Packet>>,
 }
 
 pub struct TcpClient {
-    task: Option<JoinHandle<Result<(), Error>>>,
+    validator: PacketValidator,
     data: Arc<TaskData>,
-}
-
-impl TaskData {
-    pub async fn token(&self) -> CancellationToken {
-        self.token.read().await.clone()
-    }
-
-    pub async fn cancel(&self) {
-        let token = self.token.read().await;
-        token.cancel();
-    }
-
-    pub async fn reset(&self) {
-        let mut token = self.token.write().await;
-        *token = CancellationToken::new();
-    }
-
-    pub async fn is_cancelled(&self) -> bool {
-        self.token.read().await.is_cancelled()
-    }
+    task: Option<JoinHandle<Result<(), Error>>>,
+    recv: mpsc::Receiver<Packet>,
+    send: mpsc::Sender<Packet>,
 }
 
 impl TcpClient {
-    pub async fn new(addr: &str) -> io::Result<Self> {
+    pub async fn new(addr: &str) -> Result<Self, Error> {
         let stream = TcpStream::connect(addr).await?;
         stream.set_nodelay(true)?;
 
@@ -56,77 +43,67 @@ impl TcpClient {
             RkyvCodec::<Packet, VarintLength>::default(),
         ));
 
+        let validator = PacketValidator::new(env!("CARGO_PKG_VERSION"))?;
+
+        let send = mpsc::channel(32);
+        let recv = mpsc::channel(32);
+
         let data = Arc::new(TaskData {
             framed,
-            recv_queue: Default::default(),
-            send_queue: Default::default(),
-            token: Default::default(),
+            recv: recv.0,
+            send: RwLock::new(send.1),
         });
 
-        Ok(Self { task: None, data })
+        Ok(Self {
+            validator,
+            data,
+            task: None,
+            recv: recv.1,
+            send: send.0,
+        })
     }
 
-    async fn process(data: Arc<TaskData>) -> Result<(), Error> {
+    async fn client_task(data: Arc<TaskData>) -> Result<(), Error> {
         let mut framed = data.framed.write().await;
+        let recv = &data.recv;
+        let mut send = data.send.write().await;
 
         loop {
-            let token = data.token().await;
-
-            loop {
-                let packet = select! {
-                    p = framed.next() => p.ok_or(Error::Receive)??,
-                    _ = token.cancelled() => break
-                };
-
-                info!("received: {:?}", packet);
-
-                {
-                    let mut recv_queue = data.recv_queue.write().await;
-                    recv_queue.push_back(packet);
-                }
-            }
-
-            {
-                let mut send_queue = data.send_queue.write().await;
-
-                while let Some(packet) = send_queue.pop_front() {
-                    framed.send(packet).await?;
-                }
-            }
-
-            data.reset().await;
+            select! {
+                received = framed.next() => if let Some(p) = received {
+                    let p = p?;
+                    info!("received: {:?}", p);
+                    recv.send(p).await?;
+                },
+                sent = send.recv() => if let Some(p) = sent {
+                    info!("sending: {:?}", p);
+                    framed.send(p).await?;
+                },
+            };
         }
     }
 }
 
 impl Client for TcpClient {
-    async fn send(&mut self, packet: Packet) -> bool {
-        {
-            let mut send_queue = self.data.send_queue.write().await;
-            send_queue.push_back(packet);
-        }
-
-        self.data.cancel().await;
-
-        true
+    fn get_packet_validator(&self) -> &PacketValidator {
+        &self.validator
     }
 
-    async fn receive(&mut self) -> Option<Packet> {
-        let mut recv_queue = self.data.recv_queue.write().await;
-        recv_queue.pop_front()
+    async fn send(&self, packet: client::Packet) -> Result<(), Error> {
+        Ok(self.send.send(Packet::Client(packet)).await?)
+    }
+
+    async fn receive(&mut self) -> Result<Packet, Error> {
+        self.recv.recv().await.ok_or(Error::MpscRecv())
     }
 
     async fn start(&mut self) -> bool {
         if let Some(task) = self.task.take() {
-            if !self.data.is_cancelled().await && !task.is_finished() {
-                return false;
-            }
-
             let _ = task.await;
         }
 
         let data = self.data.clone();
-        self.task = Some(tokio::spawn(async move { Self::process(data).await }));
+        self.task = Some(tokio::spawn(async move { Self::client_task(data).await }));
 
         true
     }

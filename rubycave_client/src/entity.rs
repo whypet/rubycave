@@ -1,6 +1,7 @@
 use rubycave::glam::Vec3;
 
 pub trait Entity {
+    fn get_name(&self) -> &str;
     fn move_by(&mut self, motion: Vec3);
     fn update(&mut self, delta: f32);
     fn get_head(&self) -> Vec3;
@@ -9,6 +10,7 @@ pub trait Entity {
 }
 
 pub struct Player {
+    username: String,
     head: Vec3,
     friction: f32,
     motion: Vec3,
@@ -16,8 +18,9 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(head: Vec3) -> Self {
+    pub fn new(username: &str, head: Vec3) -> Self {
         Self {
+            username: username.to_owned(),
             head,
             friction: 1.0 - (1.0 / 64.0),
             motion: Vec3::ZERO,
@@ -27,6 +30,10 @@ impl Player {
 }
 
 impl Entity for Player {
+    fn get_name(&self) -> &str {
+        &self.username
+    }
+
     fn move_by(&mut self, motion: Vec3) {
         self.motion += motion;
     }

@@ -9,6 +9,7 @@ use winit::event_loop::{ControlFlow, EventLoop};
 mod config;
 mod entity;
 mod game;
+mod math;
 mod render;
 mod resource;
 mod rpc;
