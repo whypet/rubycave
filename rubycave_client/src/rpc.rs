@@ -1,7 +1,7 @@
 use std::io;
 
 use rubycave::{
-    protocol::{client, server, Packet, PacketValidator},
+    protocol::{client, Packet, PacketValidator},
     regex,
     rkyv_codec::RkyvCodecError,
 };
@@ -58,23 +58,3 @@ pub trait Client {
         self.send(client::Packet::Disconnect { reason }).await
     }
 }
-
-/*
-pub enum RpcClient {
-    Tcp(tcp::TcpClient),
-}
-
-impl Client for RpcClient {
-    async fn send(&mut self, packet: Packet) {
-        match self {
-            RpcClient::Tcp(c) => c.send(packet).await,
-        }
-    }
-
-    async fn receive(&mut self) -> Option<Result<Packet, RkyvCodecError>> {
-        match self {
-            RpcClient::Tcp(c) => c.receive().await,
-        }
-    }
-}
-*/
