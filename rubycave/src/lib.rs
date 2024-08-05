@@ -6,6 +6,7 @@ use std::{
 pub use glam;
 pub use regex;
 pub use rkyv_codec;
+pub use tokio_util;
 
 pub mod protocol;
 pub mod world;

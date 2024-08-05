@@ -8,7 +8,6 @@ color-eyre = "0.6.3"
 futures = "0.3.30"
 rubycave = { path = "../rubycave" }
 thiserror = "1.0.63"
-tokio = { version = "1.39.1", features = ["macros", "net", "rt-multi-thread"] }
-tokio-util = { version = "0.7.11", features = ["codec"] }
+tokio = { version = "1.39.2", features = ["macros", "net", "rt-multi-thread"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"

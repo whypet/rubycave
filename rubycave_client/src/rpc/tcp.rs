@@ -4,6 +4,7 @@ use futures::SinkExt;
 use rubycave::{
     protocol::{client, Packet, PacketValidator},
     rkyv_codec::{futures_stream::RkyvCodec, VarintLength},
+    tokio_util::codec::Framed,
 };
 use tokio::{
     net::TcpStream,
@@ -15,7 +16,6 @@ use tokio::{
     task::JoinHandle,
 };
 use tokio_stream::StreamExt;
-use tokio_util::codec::Framed;
 use tracing::info;
 
 use super::{Client, Error};

@@ -3,9 +3,9 @@ use std::io;
 use rubycave::{
     protocol::Packet,
     rkyv_codec::{futures_stream::RkyvCodec, VarintLength},
+    tokio_util::codec::Framed,
 };
 use tokio::net::{TcpListener, TcpStream};
-use tokio_util::codec::Framed;
 
 use super::Server;
 

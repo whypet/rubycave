@@ -4,8 +4,8 @@ use futures::{SinkExt, Stream, StreamExt};
 use rubycave::{
     protocol::{client, server, Packet, PacketValidator},
     rkyv_codec::{futures_stream::RkyvCodec, RkyvCodecError, VarintLength},
+    tokio_util::codec::Framed,
 };
-use tokio_util::codec::Framed;
 use tracing::info;
 
 pub mod tcp;
