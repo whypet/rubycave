@@ -2,11 +2,13 @@ use rubycave::glam::Vec3;
 
 pub trait Entity {
     fn get_name(&self) -> &str;
-    fn move_by(&mut self, motion: Vec3);
-    fn update(&mut self, delta: f32);
-    fn get_head(&self) -> Vec3;
-    fn move_head(&mut self, rot: Vec3);
     fn get_position(&self) -> Vec3;
+    fn teleport(&mut self, pos: Vec3);
+    fn move_by(&mut self, motion: Vec3);
+    fn get_head(&self) -> Vec3;
+    fn set_head(&mut self, head: Vec3);
+    fn move_head(&mut self, rot: Vec3);
+    fn update(&mut self, delta: f32);
 }
 
 pub struct Player {
@@ -34,21 +36,40 @@ impl Entity for Player {
         &self.username
     }
 
-    fn move_by(&mut self, motion: Vec3) {
-        self.motion += motion;
+    fn get_position(&self) -> Vec3 {
+        self.position
     }
 
-    fn update(&mut self, delta: f32) {
-        self.motion *= self.friction;
-        self.position += self.motion * delta;
+    fn teleport(&mut self, pos: Vec3) {
+        self.position = pos
+    }
+
+    fn move_by(&mut self, motion: Vec3) {
+        self.motion += motion;
     }
 
     fn get_head(&self) -> Vec3 {
         self.head
     }
 
+    fn set_head(&mut self, head: Vec3) {
+        self.head = head;
+        self.clamp_head();
+    }
+
     fn move_head(&mut self, rot: Vec3) {
         self.head += rot;
+        self.clamp_head();
+    }
+
+    fn update(&mut self, delta: f32) {
+        self.motion *= self.friction;
+        self.position += self.motion * delta;
+    }
+}
+
+impl Player {
+    fn clamp_head(&mut self) {
         self.head.y = self
             .head
             .y
@@ -63,9 +84,5 @@ impl Entity for Player {
         if self.head.x > f2pi {
             self.head.x -= f2pi;
         }
-    }
-
-    fn get_position(&self) -> Vec3 {
-        self.position
     }
 }

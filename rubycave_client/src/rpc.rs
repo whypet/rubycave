@@ -30,9 +30,9 @@ pub trait Client {
 
     async fn send(&self, packet: client::Packet) -> Result<(), Error>;
     async fn receive(&mut self) -> Result<Packet, Error>;
-    async fn poll(&mut self) -> Result<Option<Packet>, Error>;
+    fn poll(&mut self) -> Result<Option<Packet>, Error>;
     async fn start(&mut self) -> bool;
-    async fn stop(&mut self) -> bool;
+    fn stop(&mut self) -> bool;
 
     async fn shake(&mut self, username: &str) -> Result<bool, Error> {
         let packet = self.receive().await?;

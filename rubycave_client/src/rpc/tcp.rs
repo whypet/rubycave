@@ -100,7 +100,7 @@ impl Client for TcpClient {
         self.recv.recv().await.ok_or(Error::MpscClosed())
     }
 
-    async fn poll(&mut self) -> Result<Option<Packet>, Error> {
+    fn poll(&mut self) -> Result<Option<Packet>, Error> {
         match self.recv.try_recv() {
             Err(TryRecvError::Empty) => Ok(None),
             res => Ok(Some(res?)),
@@ -108,6 +108,8 @@ impl Client for TcpClient {
     }
 
     async fn start(&mut self) -> bool {
+        info!("starting tcp client");
+
         if let Some(task) = self.task.take() {
             let _ = task.await;
         }
@@ -118,7 +120,9 @@ impl Client for TcpClient {
         true
     }
 
-    async fn stop(&mut self) -> bool {
+    fn stop(&mut self) -> bool {
+        info!("stopping tcp client");
+
         if let Some(task) = &self.task {
             task.abort();
             true

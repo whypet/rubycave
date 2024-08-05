@@ -10,6 +10,9 @@ pub use rkyv_codec;
 pub mod protocol;
 pub mod world;
 
+pub const TICK_RATE: u32 = 60;
+pub const KEEP_ALIVE_INTERVAL: u32 = 5000;
+
 pub trait InfiniteIterator {
     type Item;
 

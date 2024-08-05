@@ -14,7 +14,13 @@ use crate::{
     rpc::{self, tcp::TcpClient, Client},
 };
 use input::InputMovement;
-use rubycave::{epoch, glam::Vec3, RangeIterator};
+use rubycave::{
+    epoch,
+    glam::Vec3,
+    protocol::{client, server, Packet},
+    RangeIterator, KEEP_ALIVE_INTERVAL, TICK_RATE,
+};
+use tracing::{error, info};
 use winit::{dpi::PhysicalSize, keyboard::KeyCode};
 
 pub mod input;
@@ -33,7 +39,7 @@ pub enum Error {
 
 pub struct Game<'a> {
     game_rng: FastPrng<u32>,
-    client: TcpClient,
+    client: Option<TcpClient>,
     config: Rc<Config>,
     input: InputMovement,
     player: Rc<RefCell<Player>>,
@@ -41,6 +47,8 @@ pub struct Game<'a> {
     camera: Rc<RefCell<Camera>>,
     renderer: RefCell<GameRenderer<'a>>,
     last_update: Instant,
+    last_tick: Instant,
+    last_keep_alive: Instant,
 }
 
 impl<'a> Game<'a> {
@@ -57,11 +65,13 @@ impl<'a> Game<'a> {
 
         let mut client = TcpClient::new("127.0.0.1:1616").await?;
 
-        if !client.start().await {
-            panic!("couldn't start rpc client");
-        }
-
-        client.shake(&username).await?;
+        let client = if !client.start().await {
+            error!("couldn't start rpc client");
+            None
+        } else {
+            client.shake(&username).await?;
+            Some(client)
+        };
 
         let input = InputMovement::new(config.clone());
         let player = Rc::new(RefCell::new(Player::new(&username, Vec3::ZERO)));
@@ -74,6 +84,8 @@ impl<'a> Game<'a> {
             Vec3::ZERO,
         )));
 
+        let last = Instant::now();
+
         Ok(Self {
             game_rng,
             client,
@@ -83,7 +95,9 @@ impl<'a> Game<'a> {
             state: state.clone(),
             camera: camera.clone(),
             renderer: RefCell::new(GameRenderer::new(state, config, resource_man, camera)?),
-            last_update: Instant::now(),
+            last_update: last,
+            last_tick: last,
+            last_keep_alive: last,
         })
     }
 
@@ -93,6 +107,55 @@ impl<'a> Game<'a> {
 
     pub fn mouse(&mut self, delta: (f64, f64), window_size: PhysicalSize<u32>) {
         self.input.mouse(delta, window_size)
+    }
+
+    pub async fn update_async(&mut self) -> Result<(), Error> {
+        let Some(client) = &mut self.client else {
+            return Ok(());
+        };
+
+        match client.poll()? {
+            Some(Packet::Server(server::Packet::Kick { reason })) => {
+                info!("kicked for: {:?}", reason);
+
+                client.stop();
+                self.client = None;
+
+                return Ok(());
+            }
+            Some(Packet::Server(server::Packet::Teleport {
+                x,
+                y,
+                z,
+                yaw,
+                pitch,
+            })) => {
+                info!("teleported to: {x:.1},{y:.1},{z:.1} {yaw:.1},{pitch:.1}");
+
+                let mut player = self.player.borrow_mut();
+
+                player.teleport(Vec3::new(x, y, z));
+                player.set_head(Vec3::new(yaw, pitch, 0.0));
+            }
+            _ => {}
+        }
+
+        if self.last_tick.elapsed().as_nanos() as u64 >= 1_000_000_000 / (TICK_RATE as u64) {
+            // info!("tick elapsed");
+            self.last_tick = Instant::now();
+        }
+
+        if self.last_keep_alive.elapsed().as_millis() as u32 >= KEEP_ALIVE_INTERVAL {
+            client
+                .send(client::Packet::KeepAlive {
+                    epoch: epoch().as_millis() as u64,
+                })
+                .await?;
+
+            self.last_keep_alive = Instant::now();
+        }
+
+        Ok(())
     }
 
     pub fn update(&mut self) -> Result<(), Error> {
